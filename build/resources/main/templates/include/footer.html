@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!-- ── 공통 푸터 프래그먼트 ────────────────────────────────────
+     사용법: <footer th:replace="~{include/footer :: footer}"></footer>
+     ──────────────────────────────────────────────────────────── -->
+<footer class="app-footer" th:fragment="footer">
+    <span th:text="#{common.copyright}">© 2024 IDStory. All rights reserved.</span>
+    <span style="display:flex; align-items:center; gap:1rem;">
+        <a th:href="@{/(lang='ko')}" style="color:var(--gray-400); font-size:.73rem; text-decoration:none;" th:text="#{lang.ko}">한국어</a>
+        <a th:href="@{/(lang='en')}" style="color:var(--gray-400); font-size:.73rem; text-decoration:none;" th:text="#{lang.en}">English</a>
+    </span>
+</footer>
+
+</body>
+</html>

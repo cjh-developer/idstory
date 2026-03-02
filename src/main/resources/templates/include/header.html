@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<body>
+
+<!-- ── 공통 헤더 프래그먼트 ────────────────────────────────────
+     사용법: <header th:replace="~{include/header :: header}"></header>
+     ──────────────────────────────────────────────────────────── -->
+<header class="app-header" th:fragment="header">
+
+    <!-- 좌측: 브랜드 + 모바일 사이드바 토글 -->
+    <div style="display:flex; align-items:center; gap:.8rem;">
+        <!-- 모바일 토글 버튼 (768px 이하) -->
+        <button class="sidebar-toggle"
+                style="display:none; background:none; border:none; color:#fff; font-size:1.2rem; cursor:pointer; padding:4px;"
+                onclick="toggleSidebar()"
+                aria-label="메뉴 열기">
+            <i class="fas fa-bars"></i>
+        </button>
+
+        <!-- 브랜드 로고 -->
+        <a class="brand" th:href="@{/main/dashboard}">
+            <span class="brand-icon">
+                <i class="fas fa-shield-halved"></i>
+            </span>
+            <span th:text="#{common.appName}">IDStory</span>
+        </a>
+    </div>
+
+    <!-- 우측: 프로필 드롭다운 -->
+    <div class="header-right">
+        <div class="dropdown">
+            <button class="user-profile-btn dropdown-toggle"
+                    type="button"
+                    id="profileDropdown"
+                    data-bs-toggle="dropdown"
+                    data-bs-auto-close="outside"
+                    aria-expanded="false">
+                <div class="user-avatar"><i class="fas fa-user"></i></div>
+                <span class="user-name" sec:authentication="name">사용자</span>
+                <i class="fas fa-chevron-down chevron-icon"></i>
+            </button>
+
+            <ul class="dropdown-menu dropdown-menu-end user-dropdown" aria-labelledby="profileDropdown">
+
+                <!-- 프로필 헤더 -->
+                <li class="profile-header">
+                    <div class="profile-avatar-lg">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="profile-info">
+                        <div class="profile-name" sec:authentication="name">사용자</div>
+                        <div class="profile-role"
+                             sec:authorize="hasRole('ADMIN')"
+                             th:text="#{home.roleAdmin}">관리자</div>
+                        <div class="profile-role"
+                             sec:authorize="!hasRole('ADMIN')"
+                             th:text="#{home.roleUser}">일반 사용자</div>
+                    </div>
+                </li>
+
+                <li><hr class="dropdown-divider"></li>
+
+                <!-- 비밀번호 변경 -->
+                <li>
+                    <a class="dropdown-item profile-action-item" th:href="@{/password-reset}">
+                        <i class="fas fa-key menu-icon"></i>
+                        <span th:text="#{home.changePassword}">비밀번호 변경</span>
+                    </a>
+                </li>
+
+                <li><hr class="dropdown-divider"></li>
+
+                <!-- 로그아웃 -->
+                <li>
+                    <a class="dropdown-item profile-action-item logout-item" th:href="@{/logout}">
+                        <i class="fas fa-right-from-bracket menu-icon"></i>
+                        <span th:text="#{home.logout}">로그아웃</span>
+                    </a>
+                </li>
+
+            </ul>
+        </div>
+    </div>
+
+</header>
+
+<!-- 모바일 반응형 스타일 오버라이드 -->
+<style>
+    @media (max-width: 768px) {
+        .sidebar-toggle { display: block !important; }
+    }
+</style>
+
+</body>
+</html>

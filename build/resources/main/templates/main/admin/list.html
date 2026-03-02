@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{include/layout :: head('관리자 관리')}"></head>
+<body>
+
+<header th:replace="~{include/header :: header}"></header>
+
+<div class="app-body">
+    <aside th:replace="~{include/sidebar :: sidebar}"></aside>
+
+    <main class="app-content">
+
+        <!-- 페이지 헤더 -->
+        <div class="page-header">
+            <div>
+                <div class="breadcrumb-area">
+                    <i class="fas fa-house"></i>
+                    <i class="fas fa-chevron-right"></i>
+                    <span>사용자 관리</span>
+                    <i class="fas fa-chevron-right"></i>
+                    <span>관리자 관리</span>
+                </div>
+                <h2 class="page-title">관리자 관리</h2>
+                <p class="page-subtitle">시스템 관리자 계정을 등록하고 관리합니다.</p>
+            </div>
+            <button type="button" class="btn-add-menu" data-bs-toggle="modal" data-bs-target="#modalRegister">
+                <i class="fas fa-user-shield"></i> 관리자 등록
+            </button>
+        </div>
+
+        <!-- 토스트 알림 -->
+        <div id="toast-wrap"
+             style="position:fixed;top:1.2rem;right:1.4rem;z-index:9999;min-width:280px;display:none;">
+            <div id="toast-inner"
+                 style="padding:.75rem 1.1rem;border-radius:8px;color:#fff;
+                        font-size:.88rem;font-weight:600;display:flex;align-items:center;gap:.6rem;
+                        box-shadow:0 4px 12px rgba(0,0,0,.18);">
+                <i id="toast-icon"></i>
+                <span id="toast-msg"></span>
+            </div>
+        </div>
+
+        <!-- 검색 필터 -->
+        <div class="card" style="margin-bottom:1rem;">
+            <div class="card-body">
+                <form th:action="@{/admin/list}" method="get"
+                      style="display:flex;flex-wrap:wrap;gap:.8rem;align-items:flex-end;">
+                    <div>
+                        <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.3rem;">
+                            아이디 / 이름
+                        </label>
+                        <input type="text" name="keyword" class="modal-input"
+                               th:value="${keyword}"
+                               placeholder="아이디 또는 이름 검색"
+                               style="width:220px;"/>
+                    </div>
+                    <div style="display:flex;gap:.5rem;">
+                        <button type="submit" class="btn-modal-save" style="padding:.45rem 1rem;">
+                            <i class="fas fa-magnifying-glass"></i> 검색
+                        </button>
+                        <a th:href="@{/admin/list}" class="btn-modal-cancel"
+                           style="padding:.45rem 1rem;text-decoration:none;">
+                            초기화
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 관리자 목록 테이블 -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="fas fa-user-shield"></i> 관리자 목록
+                </span>
+                <span style="font-size:.78rem;color:var(--gray-400);">
+                    총 <strong th:text="${adminPage.totalElements}">0</strong>명
+                </span>
+            </div>
+            <div class="card-body" style="padding:0;">
+                <div class="menu-table-wrap">
+                    <table class="menu-table">
+                        <thead>
+                        <tr>
+                            <th style="width:50px;">No.</th>
+                            <th style="width:130px;">아이디</th>
+                            <th style="width:100px;">이름</th>
+                            <th style="width:190px;">이메일</th>
+                            <th style="width:130px;">휴대번호</th>
+                            <th style="width:90px;">부서</th>
+                            <th style="width:75px;">사용여부</th>
+                            <th style="width:85px;">상태</th>
+                            <th style="width:60px;">잠금</th>
+                            <th style="width:110px;">등록일</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="admin, stat : ${adminPage.content}"
+                            th:data-oid="${admin.adminOid}"
+                            onclick="openEditModal(this.dataset.oid)"
+                            style="cursor:pointer;"
+                            onmouseover="this.style.background='var(--blue-50)'"
+                            onmouseout="this.style.background=''">
+
+                            <td class="cell-center" style="color:var(--gray-400);font-size:.82rem;"
+                                th:text="${adminPage.totalElements - (adminPage.number * adminPage.size) - stat.index}">1</td>
+
+                            <td>
+                                <span th:text="${admin.user.userId}" style="font-weight:600;"></span>
+                                <span class="role-badge admin" style="font-size:.7rem;margin-left:.3rem;">ADMIN</span>
+                            </td>
+
+                            <td th:text="${admin.user.name}"></td>
+
+                            <td style="font-size:.85rem;" th:text="${admin.user.email} ?: '—'"></td>
+
+                            <td style="font-size:.85rem;" th:text="${admin.user.phone} ?: '—'"></td>
+
+                            <td>
+                                <span th:if="${admin.user.deptCode != null}"
+                                      th:text="${deptMap.get(admin.user.deptCode)} ?: ${admin.user.deptCode}"></span>
+                                <span th:if="${admin.user.deptCode == null}"
+                                      style="color:var(--gray-300);">—</span>
+                            </td>
+
+                            <td class="cell-center">
+                                <span th:if="${admin.user.useYn == 'Y'}"
+                                      class="role-badge"
+                                      style="background:var(--blue-50);color:var(--blue-600);">사용</span>
+                                <span th:if="${admin.user.useYn != 'Y'}"
+                                      class="role-badge"
+                                      style="background:var(--gray-100);color:var(--gray-500);">미사용</span>
+                            </td>
+
+                            <td class="cell-center">
+                                <span th:switch="${admin.user.status}">
+                                    <span th:case="'ACTIVE'"
+                                          class="role-badge"
+                                          style="background:#dcfce7;color:#15803d;">ACTIVE</span>
+                                    <span th:case="'SLEEPER'"
+                                          class="role-badge"
+                                          style="background:#fef9c3;color:#a16207;">SLEEPER</span>
+                                    <span th:case="'OUT'"
+                                          class="role-badge"
+                                          style="background:var(--gray-100);color:var(--gray-500);">OUT</span>
+                                    <span th:case="*" class="role-badge" th:text="${admin.user.status}">—</span>
+                                </span>
+                            </td>
+
+                            <td class="cell-center">
+                                <span th:if="${admin.user.lockYn == 'Y'}"
+                                      class="role-badge"
+                                      style="background:#ffedd5;color:#c2410c;"
+                                      th:title="'로그인 실패 ' + ${admin.user.loginFailCount} + '회'">
+                                    <i class="fas fa-lock" style="font-size:.75rem;"></i> 잠금
+                                </span>
+                                <span th:if="${admin.user.lockYn != 'Y'}"
+                                      style="color:var(--gray-300);font-size:.8rem;">—</span>
+                            </td>
+
+                            <td style="font-size:.82rem;"
+                                th:text="${admin.grantedAt != null}
+                                    ? ${#temporals.format(admin.grantedAt, 'yyyy-MM-dd')}
+                                    : '—'"></td>
+                        </tr>
+
+                        <tr th:if="${adminPage.content.isEmpty()}">
+                            <td colspan="10" class="cell-empty">
+                                <i class="fas fa-user-shield" style="margin-right:.4rem;"></i>
+                                등록된 관리자가 없습니다.
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 페이지네이션 -->
+            <div th:if="${adminPage.totalPages > 1}"
+                 style="display:flex;justify-content:center;align-items:center;gap:.4rem;padding:1rem;">
+                <a th:if="${!adminPage.first}"
+                   th:href="@{/admin/list(page=${adminPage.number - 1},keyword=${keyword})}"
+                   style="padding:.3rem .7rem;border:1px solid var(--gray-200);border-radius:6px;text-decoration:none;color:var(--gray-600);">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+                <span th:if="${adminPage.first}"
+                      style="padding:.3rem .7rem;border:1px solid var(--gray-100);border-radius:6px;color:var(--gray-300);">
+                    <i class="fas fa-chevron-left"></i>
+                </span>
+                <th:block th:with="
+                        start=${T(java.lang.Math).max(0, adminPage.number - 4)},
+                        end=${T(java.lang.Math).min(adminPage.totalPages - 1, adminPage.number + 4)}">
+                    <th:block th:each="i : ${#numbers.sequence(start, end)}">
+                        <a th:href="@{/admin/list(page=${i},keyword=${keyword})}"
+                           th:text="${i + 1}"
+                           th:style="${i == adminPage.number}
+                               ? 'padding:.3rem .65rem;border:1px solid var(--blue-500);border-radius:6px;text-decoration:none;background:var(--blue-500);color:#fff;font-weight:600;'
+                               : 'padding:.3rem .65rem;border:1px solid var(--gray-200);border-radius:6px;text-decoration:none;color:var(--gray-600);'">1</a>
+                    </th:block>
+                </th:block>
+                <a th:if="${!adminPage.last}"
+                   th:href="@{/admin/list(page=${adminPage.number + 1},keyword=${keyword})}"
+                   style="padding:.3rem .7rem;border:1px solid var(--gray-200);border-radius:6px;text-decoration:none;color:var(--gray-600);">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+                <span th:if="${adminPage.last}"
+                      style="padding:.3rem .7rem;border:1px solid var(--gray-100);border-radius:6px;color:var(--gray-300);">
+                    <i class="fas fa-chevron-right"></i>
+                </span>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<!-- ============================================================
+     관리자 등록 모달 (사용자 검색 → 선택 → 정보 입력 → 등록)
+     ============================================================ -->
+<div class="modal fade" id="modalRegister" tabindex="-1" aria-labelledby="modalRegisterLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header" style="border-bottom:1px solid var(--gray-100);">
+                <h5 class="modal-title" id="modalRegisterLabel" style="font-weight:700;font-size:1rem;">
+                    <i class="fas fa-user-shield" style="color:var(--blue-500);margin-right:.4rem;"></i>
+                    관리자 등록
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+
+            <form id="formRegister" novalidate
+                  style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;">
+                <input type="hidden" id="regTargetOid" name="targetOid"/>
+
+                <div class="modal-body" style="padding:1.5rem;overflow-y:auto;flex:1;min-height:0;">
+
+                    <!-- 에러 메시지 -->
+                    <div id="registerError"
+                         style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;
+                                padding:.7rem 1rem;color:#dc2626;font-size:.85rem;margin-bottom:1rem;">
+                    </div>
+
+                    <!-- ── STEP 1: 사용자 검색 ── -->
+                    <div style="margin-bottom:1.2rem;">
+                        <div style="font-size:.88rem;font-weight:700;color:var(--gray-600);
+                                    display:flex;align-items:center;gap:.4rem;margin-bottom:.8rem;">
+                            <span style="width:20px;height:20px;background:var(--blue-500);color:#fff;
+                                         border-radius:50%;display:flex;align-items:center;justify-content:center;
+                                         font-size:.72rem;font-weight:800;">1</span>
+                            사용자 검색 및 선택
+                        </div>
+
+                        <div style="display:flex;gap:.6rem;margin-bottom:.8rem;">
+                            <input type="text" id="regSearchKeyword" class="modal-input"
+                                   placeholder="아이디 또는 이름으로 검색"
+                                   style="width:280px;"
+                                   onkeydown="if(event.key==='Enter'){event.preventDefault();searchUsersForAdmin();}"/>
+                            <button type="button" class="btn-modal-save"
+                                    style="padding:.45rem 1rem;white-space:nowrap;"
+                                    onclick="searchUsersForAdmin()">
+                                <i class="fas fa-magnifying-glass"></i> 검색
+                            </button>
+                        </div>
+
+                        <!-- 검색 결과 -->
+                        <div id="searchResultWrap"
+                             style="border:1px solid var(--gray-200);border-radius:8px;
+                                    max-height:220px;overflow-y:auto;display:none;">
+                            <table class="menu-table" style="margin:0;">
+                                <thead>
+                                <tr>
+                                    <th style="width:120px;">아이디</th>
+                                    <th style="width:90px;">이름</th>
+                                    <th>이메일</th>
+                                    <th style="width:90px;">부서</th>
+                                    <th style="width:80px;">상태</th>
+                                </tr>
+                                </thead>
+                                <tbody id="searchResultTbody">
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="searchEmptyMsg"
+                             style="display:none;padding:.7rem 1rem;border:1px solid var(--gray-200);
+                                    border-radius:8px;font-size:.85rem;color:var(--gray-400);text-align:center;">
+                            <i class="fas fa-user-slash" style="margin-right:.4rem;"></i>
+                            검색된 사용자가 없습니다.
+                        </div>
+                    </div>
+
+                    <!-- ── STEP 2: 선택된 사용자 정보 & 추가 입력 ── -->
+                    <div id="regFormSection" style="opacity:.4;pointer-events:none;transition:opacity .25s;">
+
+                        <div style="height:1px;background:var(--gray-100);margin-bottom:1.2rem;"></div>
+
+                        <div style="font-size:.88rem;font-weight:700;color:var(--gray-600);
+                                    display:flex;align-items:center;gap:.4rem;margin-bottom:.8rem;">
+                            <span style="width:20px;height:20px;background:var(--blue-500);color:#fff;
+                                         border-radius:50%;display:flex;align-items:center;justify-content:center;
+                                         font-size:.72rem;font-weight:800;">2</span>
+                            정보 확인 및 추가 입력
+                        </div>
+
+                        <!-- 선택된 사용자 배너 -->
+                        <div id="selectedBanner"
+                             style="display:none;background:var(--blue-50);border:1px solid var(--blue-200);
+                                    border-radius:8px;padding:.65rem 1rem;margin-bottom:1rem;
+                                    font-size:.85rem;color:var(--blue-700);
+                                    align-items:center;gap:.5rem;">
+                            <i class="fas fa-circle-check" style="color:var(--blue-500);"></i>
+                            <span id="selectedBannerText"></span>
+                        </div>
+
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+
+                            <div>
+                                <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.35rem;">
+                                    이름 <span style="color:var(--red-500);">*</span>
+                                </label>
+                                <input type="text" id="regName" name="name" class="modal-input"
+                                       placeholder="이름" maxlength="100" style="width:100%;" required/>
+                            </div>
+
+                            <div>
+                                <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.35rem;">
+                                    이메일 <span style="color:var(--red-500);">*</span>
+                                </label>
+                                <input type="email" id="regEmail" name="email" class="modal-input"
+                                       placeholder="example@company.com" maxlength="100" style="width:100%;" required/>
+                            </div>
+
+                            <div>
+                                <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.35rem;">
+                                    휴대번호
+                                </label>
+                                <input type="text" id="regPhone" name="phone" class="modal-input"
+                                       placeholder="010-0000-0000" maxlength="20" style="width:100%;"/>
+                            </div>
+
+                            <div>
+                                <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.35rem;">
+                                    부서
+                                </label>
+                                <select id="regDeptCode" name="deptCode" class="modal-input" style="width:100%;">
+                                    <option value="">── 부서 없음 ──</option>
+                                    <option th:each="dept : ${deptList}"
+                                            th:value="${dept.deptCode}"
+                                            th:text="${dept.deptName}">부서명</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.35rem;">
+                                    사용여부
+                                </label>
+                                <select id="regUseYn" name="useYn" class="modal-input" style="width:100%;">
+                                    <option value="Y">사용 (Y)</option>
+                                    <option value="N">미사용 (N)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.35rem;">
+                                    상태
+                                </label>
+                                <select id="regStatus" name="status" class="modal-input" style="width:100%;">
+                                    <option value="ACTIVE">ACTIVE</option>
+                                    <option value="SLEEPER">SLEEPER</option>
+                                    <option value="OUT">OUT</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.35rem;">
+                                    사용 시작일
+                                </label>
+                                <input type="date" id="regValidStartDate" name="validStartDate"
+                                       class="modal-input" style="width:100%;"/>
+                            </div>
+
+                            <div>
+                                <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.35rem;">
+                                    사용 종료일
+                                    <span style="font-weight:400;color:var(--gray-400);font-size:.78rem;">(미입력=무제한)</span>
+                                </label>
+                                <input type="date" id="regValidEndDate" name="validEndDate"
+                                       class="modal-input" style="width:100%;"/>
+                            </div>
+
+                            <div style="grid-column:1/-1;">
+                                <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.35rem;">
+                                    관리자 비고
+                                    <span style="font-weight:400;color:var(--gray-400);font-size:.78rem;">(선택)</span>
+                                </label>
+                                <input type="text" id="regAdminNote" name="adminNote" class="modal-input"
+                                       placeholder="관리자 등록 사유, 담당 업무 등" maxlength="500" style="width:100%;"/>
+                            </div>
+
+                        </div><!-- /grid -->
+                    </div><!-- /regFormSection -->
+
+                </div><!-- /modal-body -->
+
+                <div class="modal-footer" style="border-top:1px solid var(--gray-100);padding:.9rem 1.5rem;">
+                    <button type="button" class="btn-modal-cancel" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn-modal-save" id="btnRegSubmit" disabled>
+                        <i class="fas fa-user-shield"></i> 관리자 등록
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     관리자 수정 모달
+     ============================================================ -->
+<div class="modal fade" id="modalEdit" tabindex="-1" aria-labelledby="modalEditLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header" style="border-bottom:1px solid var(--gray-100);">
+                <h5 class="modal-title" id="modalEditLabel" style="font-weight:700;font-size:1rem;">
+                    <i class="fas fa-user-pen" style="color:var(--blue-500);margin-right:.4rem;"></i>
+                    관리자 수정
+                    <span id="editUserIdBadge"
+                          style="font-size:.82rem;font-weight:600;color:var(--gray-500);
+                                 background:var(--gray-100);border-radius:5px;padding:.15rem .5rem;margin-left:.4rem;"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+
+            <form id="formEdit" novalidate
+                  style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;">
+                <!-- adminOid 저장 -->
+                <input type="hidden" id="editAdminOid"/>
+
+                <div class="modal-body" style="padding:1.5rem;overflow-y:auto;flex:1;min-height:0;">
+
+                    <!-- 에러 메시지 -->
+                    <div id="editError"
+                         style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;
+                                padding:.7rem 1rem;color:#dc2626;font-size:.85rem;margin-bottom:1rem;">
+                    </div>
+
+                    <!-- 잠금 경고 -->
+                    <div id="editLockInfo"
+                         style="display:none;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;
+                                padding:.6rem 1rem;color:#c2410c;font-size:.83rem;margin-bottom:1rem;">
+                        <i class="fas fa-lock" style="margin-right:.3rem;"></i>
+                        <span id="editLockInfoText"></span>
+                    </div>
+
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+
+                        <div>
+                            <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.35rem;">
+                                이름 <span style="color:var(--red-500);">*</span>
+                            </label>
+                            <input type="text" id="editName" name="name" class="modal-input"
+                                   placeholder="이름" maxlength="100" style="width:100%;" required/>
+                        </div>
+
+                        <div>
+                            <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.35rem;">
+                                이메일 <span style="color:var(--red-500);">*</span>
+                            </label>
+                            <input type="email" id="editEmail" name="email" class="modal-input"
+                                   placeholder="example@company.com" maxlength="100" style="width:100%;" required/>
+                        </div>
+
+                        <div>
+                            <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.35rem;">
+                                휴대번호
+                            </label>
+                            <input type="text" id="editPhone" name="phone" class="modal-input"
+                                   placeholder="010-0000-0000" maxlength="20" style="width:100%;"/>
+                        </div>
+
+                        <div>
+                            <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.35rem;">
+                                부서
+                            </label>
+                            <select id="editDeptCode" name="deptCode" class="modal-input" style="width:100%;">
+                                <option value="">── 부서 없음 ──</option>
+                                <option th:each="dept : ${deptList}"
+                                        th:value="${dept.deptCode}"
+                                        th:text="${dept.deptName}">부서명</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.35rem;">
+                                사용여부
+                            </label>
+                            <select id="editUseYn" name="useYn" class="modal-input" style="width:100%;">
+                                <option value="Y">사용 (Y)</option>
+                                <option value="N">미사용 (N)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.35rem;">
+                                상태
+                            </label>
+                            <select id="editStatus" name="status" class="modal-input" style="width:100%;">
+                                <option value="ACTIVE">ACTIVE</option>
+                                <option value="SLEEPER">SLEEPER</option>
+                                <option value="OUT">OUT</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.35rem;">
+                                잠금 해제
+                            </label>
+                            <select id="editLockYn" name="lockYn" class="modal-input" style="width:100%;">
+                                <option value="N">정상 (N)</option>
+                                <option value="Y">잠금 (Y)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.35rem;">
+                                새 비밀번호
+                                <span style="font-weight:400;color:var(--gray-400);font-size:.78rem;">(입력 시에만 변경)</span>
+                            </label>
+                            <input type="password" id="editNewPassword" name="newPassword" class="modal-input"
+                                   placeholder="변경할 비밀번호 (빈칸=유지)" maxlength="100" style="width:100%;"/>
+                        </div>
+
+                        <div>
+                            <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.35rem;">
+                                사용 시작일
+                            </label>
+                            <input type="date" id="editValidStartDate" name="validStartDate"
+                                   class="modal-input" style="width:100%;"/>
+                        </div>
+
+                        <div>
+                            <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.35rem;">
+                                사용 종료일
+                                <span style="font-weight:400;color:var(--gray-400);font-size:.78rem;">(미입력=무제한)</span>
+                            </label>
+                            <input type="date" id="editValidEndDate" name="validEndDate"
+                                   class="modal-input" style="width:100%;"/>
+                        </div>
+
+                        <div style="grid-column:1/-1;">
+                            <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.35rem;">
+                                관리자 비고
+                                <span style="font-weight:400;color:var(--gray-400);font-size:.78rem;">(선택)</span>
+                            </label>
+                            <input type="text" id="editAdminNote" name="adminNote" class="modal-input"
+                                   placeholder="관리자 등록 사유, 담당 업무 등" maxlength="500" style="width:100%;"/>
+                        </div>
+
+                    </div><!-- /grid -->
+                </div><!-- /modal-body -->
+
+                <div class="modal-footer"
+                     style="border-top:1px solid var(--gray-100);padding:.9rem 1.5rem;
+                            display:flex;justify-content:space-between;align-items:center;">
+                    <!-- 관리자 해제 버튼 (왼쪽) -->
+                    <button type="button" id="btnDemote"
+                            style="padding:.45rem 1rem;border:1px solid #fca5a5;border-radius:6px;
+                                   background:#fff;color:#dc2626;font-size:.85rem;font-weight:600;
+                                   cursor:pointer;display:flex;align-items:center;gap:.4rem;"
+                            onclick="confirmDemote()">
+                        <i class="fas fa-user-minus"></i> 관리자 해제
+                    </button>
+                    <!-- 저장/취소 버튼 (오른쪽) -->
+                    <div style="display:flex;gap:.6rem;">
+                        <button type="button" class="btn-modal-cancel" data-bs-dismiss="modal">취소</button>
+                        <button type="submit" class="btn-modal-save" id="btnEditSubmit">
+                            <i class="fas fa-floppy-disk"></i> 저장
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 관리자 해제 확인 모달 -->
+<div class="modal fade" id="modalDemoteConfirm" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body" style="padding:1.5rem;text-align:center;">
+                <div style="width:52px;height:52px;background:#fff7ed;border-radius:50%;
+                            display:flex;align-items:center;justify-content:center;margin:0 auto .9rem;">
+                    <i class="fas fa-user-minus" style="font-size:1.3rem;color:#c2410c;"></i>
+                </div>
+                <p style="font-weight:700;font-size:.95rem;margin-bottom:.4rem;">관리자 권한을 해제하시겠습니까?</p>
+                <p style="font-size:.83rem;color:var(--gray-500);">
+                    해당 계정은 일반 사용자(USER)로 변경되며<br>관리자 기능을 사용할 수 없게 됩니다.
+                </p>
+            </div>
+            <div class="modal-footer"
+                 style="border-top:1px solid var(--gray-100);padding:.75rem 1.2rem;justify-content:center;gap:.6rem;">
+                <button type="button" class="btn-modal-cancel" data-bs-dismiss="modal">취소</button>
+                <button type="button" id="btnDemoteConfirm"
+                        style="padding:.45rem 1.1rem;border:none;border-radius:6px;
+                               background:#dc2626;color:#fff;font-size:.85rem;font-weight:600;cursor:pointer;">
+                    <i class="fas fa-user-minus"></i> 해제 확인
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer th:replace="~{include/footer :: footer}"></footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/common.js}"></script>
+
+<script>
+/* ── 등록 모달: 열릴 때 초기화 ─────────────────────────────── */
+document.getElementById('modalRegister').addEventListener('show.bs.modal', function () {
+    document.getElementById('regTargetOid').value = '';
+    document.getElementById('regSearchKeyword').value = '';
+    document.getElementById('searchResultWrap').style.display = 'none';
+    document.getElementById('searchEmptyMsg').style.display = 'none';
+    document.getElementById('regFormSection').style.opacity = '.4';
+    document.getElementById('regFormSection').style.pointerEvents = 'none';
+    document.getElementById('btnRegSubmit').disabled = true;
+    document.getElementById('selectedBanner').style.display = 'none';
+    document.getElementById('formRegister').reset();
+    hideError('registerError');
+});
+
+/* ── 사용자 검색 ─────────────────────────────────────────────── */
+async function searchUsersForAdmin() {
+    const keyword = document.getElementById('regSearchKeyword').value.trim();
+    const res = await fetch('/admin/api/search-users?keyword=' + encodeURIComponent(keyword));
+    const users = await res.json();
+
+    const wrap  = document.getElementById('searchResultWrap');
+    const empty = document.getElementById('searchEmptyMsg');
+    const tbody = document.getElementById('searchResultTbody');
+    tbody.innerHTML = '';
+
+    if (users.length === 0) {
+        wrap.style.display  = 'none';
+        empty.style.display = 'block';
+        return;
+    }
+    empty.style.display = 'none';
+    wrap.style.display  = 'block';
+
+    users.forEach(u => {
+        const tr = document.createElement('tr');
+        tr.style.cursor = 'pointer';
+        tr.innerHTML =
+            '<td style="font-weight:600;">' + esc(u.userId) + '</td>' +
+            '<td>' + esc(u.name) + '</td>' +
+            '<td style="font-size:.83rem;">' + esc(u.email || '—') + '</td>' +
+            '<td>' + esc(u.deptName || '—') + '</td>' +
+            '<td class="cell-center"><span class="role-badge" style="background:#dcfce7;color:#15803d;">' +
+            esc(u.status) + '</span></td>';
+        tr.addEventListener('mouseover',  () => tr.style.background = 'var(--blue-50)');
+        tr.addEventListener('mouseout',   () => tr.style.background = tr.classList.contains('selected-row') ? 'var(--blue-100)' : '');
+        tr.addEventListener('click',      () => selectUserForAdmin(u, tr));
+        tbody.appendChild(tr);
+    });
+}
+
+/* ── 사용자 선택 ─────────────────────────────────────────────── */
+function selectUserForAdmin(u, rowEl) {
+    document.querySelectorAll('#searchResultTbody tr').forEach(tr => {
+        tr.classList.remove('selected-row');
+        tr.style.background = '';
+    });
+    rowEl.classList.add('selected-row');
+    rowEl.style.background = 'var(--blue-100)';
+
+    document.getElementById('regTargetOid').value = u.oid;
+    document.getElementById('regName').value           = u.name           || '';
+    document.getElementById('regEmail').value          = u.email          || '';
+    document.getElementById('regPhone').value          = u.phone          || '';
+    document.getElementById('regDeptCode').value       = u.deptCode       || '';
+    document.getElementById('regUseYn').value          = u.useYn          || 'Y';
+    document.getElementById('regStatus').value         = u.status         || 'ACTIVE';
+    document.getElementById('regValidStartDate').value = u.validStartDate || '';
+    document.getElementById('regValidEndDate').value   = u.validEndDate   || '';
+    document.getElementById('regAdminNote').value      = '';
+
+    const banner = document.getElementById('selectedBanner');
+    document.getElementById('selectedBannerText').textContent =
+        u.userId + ' (' + u.name + ') 를 관리자로 등록합니다. 정보를 확인하고 필요 시 수정하세요.';
+    banner.style.display = 'flex';
+
+    const formSection = document.getElementById('regFormSection');
+    formSection.style.opacity       = '1';
+    formSection.style.pointerEvents = 'auto';
+    document.getElementById('btnRegSubmit').disabled = false;
+}
+
+/* ── 등록 폼 AJAX 제출 ────────────────────────────────────────── */
+document.getElementById('formRegister').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    hideError('registerError');
+    const targetOid = document.getElementById('regTargetOid').value;
+    if (!targetOid) { showError('registerError', '등록할 사용자를 선택하세요.'); return; }
+    const btn = document.getElementById('btnRegSubmit');
+    btn.disabled = true;
+    try {
+        const params = new URLSearchParams(new FormData(this));
+        const res = await fetch('/admin/api/register', {
+            method: 'POST',
+            headers: { [getCsrfHeader()]: getCsrfToken() },
+            body: params
+        });
+        const json = await res.json();
+        if (json.success) {
+            bootstrap.Modal.getInstance(document.getElementById('modalRegister')).hide();
+            showToast(json.message, true);
+            setTimeout(() => location.reload(), 900);
+        } else {
+            showError('registerError', json.message || '등록 중 오류가 발생했습니다.');
+        }
+    } catch (err) {
+        showError('registerError', '서버 오류가 발생했습니다.');
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+/* ── 수정 모달 열기 (adminOid 사용) ──────────────────────────── */
+async function openEditModal(adminOid) {
+    hideError('editError');
+    document.getElementById('editLockInfo').style.display = 'none';
+    try {
+        const res = await fetch('/admin/api/' + adminOid);
+        if (!res.ok) throw new Error('관리자 정보를 불러올 수 없습니다.');
+        const d = await res.json();
+
+        document.getElementById('editAdminOid').value              = d.adminOid;
+        document.getElementById('editUserIdBadge').textContent     = d.userId;
+        document.getElementById('editName').value                  = d.name           || '';
+        document.getElementById('editEmail').value                 = d.email          || '';
+        document.getElementById('editPhone').value                 = d.phone          || '';
+        document.getElementById('editDeptCode').value              = d.deptCode       || '';
+        document.getElementById('editUseYn').value                 = d.useYn          || 'Y';
+        document.getElementById('editStatus').value                = d.status         || 'ACTIVE';
+        document.getElementById('editLockYn').value                = d.lockYn         || 'N';
+        document.getElementById('editValidStartDate').value        = d.validStartDate || '';
+        document.getElementById('editValidEndDate').value          = d.validEndDate   || '';
+        document.getElementById('editNewPassword').value           = '';
+        document.getElementById('editAdminNote').value             = d.adminNote      || '';
+
+        if (d.lockYn === 'Y') {
+            document.getElementById('editLockInfoText').textContent =
+                '비밀번호 ' + d.loginFailCount + '회 연속 실패로 잠금 상태입니다. "정상 (N)"으로 변경 후 저장하면 해제됩니다.';
+            document.getElementById('editLockInfo').style.display = 'block';
+        }
+        new bootstrap.Modal(document.getElementById('modalEdit')).show();
+    } catch (err) {
+        alert(err.message);
+    }
+}
+
+/* ── 수정 폼 AJAX 제출 ────────────────────────────────────────── */
+document.getElementById('formEdit').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    hideError('editError');
+    const btn = document.getElementById('btnEditSubmit');
+    btn.disabled = true;
+    const adminOid = document.getElementById('editAdminOid').value;
+    try {
+        const res = await fetch('/admin/api/' + adminOid + '/update', {
+            method: 'POST',
+            headers: { [getCsrfHeader()]: getCsrfToken() },
+            body: new URLSearchParams(new FormData(this))
+        });
+        const json = await res.json();
+        if (json.success) {
+            bootstrap.Modal.getInstance(document.getElementById('modalEdit')).hide();
+            showToast(json.message, true);
+            setTimeout(() => location.reload(), 900);
+        } else {
+            showError('editError', json.message || '수정 중 오류가 발생했습니다.');
+        }
+    } catch (err) {
+        showError('editError', '서버 오류가 발생했습니다.');
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+/* ── 관리자 해제: 확인 모달 표시 ────────────────────────────── */
+function confirmDemote() {
+    bootstrap.Modal.getInstance(document.getElementById('modalEdit')).hide();
+    document.getElementById('modalEdit').addEventListener('hidden.bs.modal', function showDemote() {
+        new bootstrap.Modal(document.getElementById('modalDemoteConfirm')).show();
+        document.getElementById('modalEdit').removeEventListener('hidden.bs.modal', showDemote);
+    });
+}
+
+/* ── 관리자 해제: 실행 (adminOid 사용) ─────────────────────── */
+document.getElementById('btnDemoteConfirm').addEventListener('click', async function () {
+    const adminOid = document.getElementById('editAdminOid').value;
+    this.disabled = true;
+    try {
+        const res = await fetch('/admin/api/' + adminOid + '/demote', {
+            method: 'POST',
+            headers: { [getCsrfHeader()]: getCsrfToken() }
+        });
+        const json = await res.json();
+        bootstrap.Modal.getInstance(document.getElementById('modalDemoteConfirm')).hide();
+        showToast(json.message, json.success);
+        if (json.success) setTimeout(() => location.reload(), 900);
+    } catch (err) {
+        alert('서버 오류가 발생했습니다.');
+    } finally {
+        this.disabled = false;
+    }
+});
+
+/* ── 유틸 ─────────────────────────────────────────────────────── */
+function showError(id, msg) {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = msg; el.style.display = 'block'; }
+}
+function hideError(id) {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = ''; el.style.display = 'none'; }
+}
+function showToast(msg, success) {
+    const wrap  = document.getElementById('toast-wrap');
+    const inner = document.getElementById('toast-inner');
+    const icon  = document.getElementById('toast-icon');
+    const text  = document.getElementById('toast-msg');
+    inner.style.background = success ? '#16a34a' : '#dc2626';
+    icon.className = success ? 'fas fa-circle-check' : 'fas fa-circle-exclamation';
+    text.textContent = msg;
+    wrap.style.display = 'block';
+    setTimeout(() => { wrap.style.display = 'none'; }, 3000);
+}
+function esc(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+</script>
+
+</body>
+</html>

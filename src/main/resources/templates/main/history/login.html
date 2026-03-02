@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{include/layout :: head('로그인 이력')}"></head>
+<body>
+
+<header th:replace="~{include/header :: header}"></header>
+
+<div class="app-body">
+    <aside th:replace="~{include/sidebar :: sidebar}"></aside>
+
+    <main class="app-content">
+
+        <!-- 페이지 헤더 -->
+        <div class="page-header">
+            <div>
+                <div class="breadcrumb-area">
+                    <i class="fas fa-house"></i>
+                    <i class="fas fa-chevron-right"></i>
+                    <span>감사 / 이력 관리</span>
+                    <i class="fas fa-chevron-right"></i>
+                    <span>로그인 이력</span>
+                </div>
+                <h2 class="page-title">로그인 이력</h2>
+                <p class="page-subtitle">로그인 성공·실패·로그아웃 이력을 조회합니다.</p>
+            </div>
+        </div>
+
+        <!-- 검색 필터 -->
+        <div class="card" style="margin-bottom:1rem;">
+            <div class="card-body">
+                <form th:action="@{/history/login}" method="get"
+                      style="display:flex;flex-wrap:wrap;gap:.8rem;align-items:flex-end;">
+
+                    <div>
+                        <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.3rem;">이벤트 유형</label>
+                        <select name="actionType" class="modal-input" style="width:150px;">
+                            <option value="">전체</option>
+                            <option value="LOGIN_SUCCESS" th:selected="${actionType == 'LOGIN_SUCCESS'}">LOGIN_SUCCESS</option>
+                            <option value="LOGIN_FAIL"    th:selected="${actionType == 'LOGIN_FAIL'}">LOGIN_FAIL</option>
+                            <option value="LOGOUT"        th:selected="${actionType == 'LOGOUT'}">LOGOUT</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.3rem;">계정</label>
+                        <input type="text" name="userId" class="modal-input"
+                               th:value="${userId}"
+                               placeholder="계정 검색" style="width:160px;"/>
+                    </div>
+
+                    <div>
+                        <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.3rem;">시작 날짜</label>
+                        <input type="date" name="dateFrom" class="modal-input"
+                               th:value="${dateFrom}" style="width:150px;"/>
+                    </div>
+
+                    <div>
+                        <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.3rem;">종료 날짜</label>
+                        <input type="date" name="dateTo" class="modal-input"
+                               th:value="${dateTo}" style="width:150px;"/>
+                    </div>
+
+                    <div style="display:flex;gap:.5rem;">
+                        <button type="submit" class="btn-modal-save" style="padding:.45rem 1rem;">
+                            <i class="fas fa-magnifying-glass"></i> 검색
+                        </button>
+                        <a th:href="@{/history/login}" class="btn-modal-cancel" style="padding:.45rem 1rem;text-decoration:none;">
+                            초기화
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 이력 목록 -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="fas fa-clock-rotate-left"></i> 로그인 이력
+                </span>
+                <span style="font-size:.78rem; color:var(--gray-400);">
+                    총 <strong th:text="${historyPage.totalElements}">0</strong>건
+                </span>
+            </div>
+            <div class="card-body" style="padding:0;">
+                <div class="menu-table-wrap">
+                    <table class="menu-table">
+                        <thead>
+                        <tr>
+                            <th style="width:160px;">계정</th>
+                            <th style="width:140px;">이벤트 유형</th>
+                            <th>실패 사유</th>
+                            <th style="width:170px;">처리 일시</th>
+                            <th style="width:140px;">IP 주소</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="h : ${historyPage.content}">
+                            <td>
+                                <span th:text="${h.userId}">userId</span>
+                                <br/>
+                                <span style="font-size:.75rem;color:var(--gray-400);"
+                                      th:text="${h.userOid} ?: '(미가입)'">oid</span>
+                            </td>
+                            <td class="cell-center">
+                                <span th:switch="${h.actionType}">
+                                    <span th:case="'LOGIN_SUCCESS'" class="role-badge"
+                                          style="background:var(--blue-100);color:var(--blue-700);">LOGIN_SUCCESS</span>
+                                    <span th:case="'LOGIN_FAIL'" class="role-badge"
+                                          style="background:#fee2e2;color:#b91c1c;">LOGIN_FAIL</span>
+                                    <span th:case="'LOGOUT'" class="role-badge"
+                                          style="background:#f3f4f6;color:#374151;">LOGOUT</span>
+                                    <span th:case="*" class="role-badge"
+                                          th:text="${h.actionType}">TYPE</span>
+                                </span>
+                            </td>
+                            <td>
+                                <span th:text="${h.failReason} ?: '—'"
+                                      style="font-size:.85rem;color:var(--gray-500);">사유</span>
+                            </td>
+                            <td th:text="${#temporals.format(h.performedAt, 'yyyy-MM-dd HH:mm:ss')}">일시</td>
+                            <td th:text="${h.ipAddress} ?: '—'">IP</td>
+                        </tr>
+
+                        <tr th:if="${historyPage.content.isEmpty()}">
+                            <td colspan="5" class="cell-empty">이력 데이터가 없습니다.</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 페이지네이션 -->
+            <div th:if="${historyPage.totalPages > 1}"
+                 style="display:flex;justify-content:center;gap:.4rem;padding:1rem;">
+                <a th:if="${!historyPage.first}"
+                   th:href="@{/history/login(page=${historyPage.number - 1},actionType=${actionType},userId=${userId},dateFrom=${dateFrom},dateTo=${dateTo})}"
+                   style="padding:.3rem .7rem;border:1px solid var(--gray-200);border-radius:6px;text-decoration:none;color:var(--gray-600);">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+                <th:block th:each="i : ${#numbers.sequence(0, historyPage.totalPages - 1)}">
+                    <a th:href="@{/history/login(page=${i},actionType=${actionType},userId=${userId},dateFrom=${dateFrom},dateTo=${dateTo})}"
+                       th:text="${i + 1}"
+                       th:style="${i == historyPage.number} ?
+                           'padding:.3rem .7rem;border:1px solid var(--blue-500);border-radius:6px;text-decoration:none;background:var(--blue-500);color:#fff;' :
+                           'padding:.3rem .7rem;border:1px solid var(--gray-200);border-radius:6px;text-decoration:none;color:var(--gray-600);'">
+                        1
+                    </a>
+                </th:block>
+                <a th:if="${!historyPage.last}"
+                   th:href="@{/history/login(page=${historyPage.number + 1},actionType=${actionType},userId=${userId},dateFrom=${dateFrom},dateTo=${dateTo})}"
+                   style="padding:.3rem .7rem;border:1px solid var(--gray-200);border-radius:6px;text-decoration:none;color:var(--gray-600);">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<footer th:replace="~{include/footer :: footer}"></footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/common.js}"></script>
+
+</body>
+</html>

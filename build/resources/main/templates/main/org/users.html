@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{include/layout :: head('조직사용자')}"></head>
+<body>
+
+<header th:replace="~{include/header :: header}"></header>
+
+<div class="app-body">
+    <aside th:replace="~{include/sidebar :: sidebar}"></aside>
+
+    <main class="app-content">
+
+        <!-- 페이지 헤더 -->
+        <div class="page-header">
+            <div>
+                <div class="breadcrumb-area">
+                    <i class="fas fa-house"></i>
+                    <i class="fas fa-chevron-right"></i>
+                    <span>조직 관리</span>
+                    <i class="fas fa-chevron-right"></i>
+                    <span>조직사용자</span>
+                </div>
+                <h2 class="page-title">조직사용자</h2>
+                <p class="page-subtitle">부서별 사용자를 조회하고 배정·이동·해제합니다.</p>
+            </div>
+        </div>
+
+        <!-- 토스트 알림 -->
+        <div id="toast-wrap" style="position:fixed;top:1.2rem;right:1.4rem;z-index:9999;min-width:280px;display:none;">
+            <div id="toast-inner"
+                 style="padding:.75rem 1.1rem;border-radius:8px;color:#fff;font-size:.88rem;font-weight:600;
+                        display:flex;align-items:center;gap:.6rem;box-shadow:0 4px 12px rgba(0,0,0,.18);">
+                <i id="toast-icon"></i><span id="toast-msg"></span>
+            </div>
+        </div>
+
+        <!-- 2열 레이아웃 -->
+        <div style="display:flex;gap:1.2rem;align-items:flex-start;">
+
+            <!-- ── 왼쪽: 부서 트리 ──────────────────────────────────── -->
+            <div class="card" style="width:280px;flex-shrink:0;min-height:540px;">
+                <div class="card-body" style="padding:1rem;">
+                    <div style="font-size:.85rem;font-weight:700;color:#374151;margin-bottom:.6rem;">
+                        <i class="fas fa-sitemap" style="margin-right:.4rem;color:#2563eb;"></i>부서 트리
+                    </div>
+                    <!-- 검색 -->
+                    <div style="position:relative;margin-bottom:.7rem;">
+                        <i class="fas fa-search" style="position:absolute;left:.6rem;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:.8rem;pointer-events:none;"></i>
+                        <input type="text" id="treeSearch" placeholder="부서 검색"
+                               oninput="filterDeptTree()"
+                               style="width:100%;padding:.38rem .7rem .38rem 1.9rem;font-size:.83rem;
+                                      border:1px solid #d1d5db;border-radius:6px;outline:none;box-sizing:border-box;">
+                    </div>
+                    <div id="deptTree" style="font-size:.88rem;line-height:1.7;">
+                        <div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">로딩 중...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── 오른쪽: 사용자 목록 ──────────────────────────────── -->
+            <div class="card" style="flex:1;min-height:540px;">
+                <div class="card-body" id="userPanel" style="padding:1.5rem;color:#9ca3af;font-size:.88rem;">
+                    <div style="text-align:center;padding:3rem 0;">
+                        <i class="fas fa-hand-pointer" style="font-size:2rem;margin-bottom:.8rem;display:block;"></i>
+                        왼쪽 트리에서 부서를 선택하면 사용자 목록이 표시됩니다.
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- end 2열 -->
+
+    </main>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     모달: 사용자 배정
+     ════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalAssign" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-user-plus" style="margin-right:.5rem;"></i>사용자 배정</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:1.25rem;">
+
+                <!-- 배정 대상 부서 표시 -->
+                <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;
+                            padding:.7rem 1rem;margin-bottom:1rem;font-size:.85rem;">
+                    <i class="fas fa-building" style="color:#2563eb;margin-right:.4rem;"></i>
+                    배정할 부서: <strong id="assignDeptName"></strong>
+                </div>
+
+                <!-- 검색 -->
+                <div style="display:flex;gap:.5rem;margin-bottom:.8rem;">
+                    <input type="text" id="assignSearch" class="modal-input"
+                           placeholder="아이디 또는 이름으로 검색" style="flex:1;"
+                           oninput="searchAssignableUsers()">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="searchAssignableUsers()">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+
+                <!-- 사용자 테이블 -->
+                <!-- 총 건수 -->
+                <div style="font-size:.77rem;color:#6b7280;margin-bottom:.35rem;">
+                    <span id="assignTotalInfo"></span>
+                </div>
+                <div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+                    <table style="width:100%;border-collapse:collapse;font-size:.845rem;">
+                        <thead>
+                            <tr style="background:#f9fafb;">
+                                <th style="padding:.55rem .8rem;font-weight:700;font-size:.75rem;color:#6b7280;text-align:left;border-bottom:1px solid #e5e7eb;">선택</th>
+                                <th style="padding:.55rem .8rem;font-weight:700;font-size:.75rem;color:#6b7280;border-bottom:1px solid #e5e7eb;">아이디</th>
+                                <th style="padding:.55rem .8rem;font-weight:700;font-size:.75rem;color:#6b7280;border-bottom:1px solid #e5e7eb;">이름</th>
+                                <th style="padding:.55rem .8rem;font-weight:700;font-size:.75rem;color:#6b7280;border-bottom:1px solid #e5e7eb;">현재 부서</th>
+                                <th style="padding:.55rem .8rem;font-weight:700;font-size:.75rem;color:#6b7280;border-bottom:1px solid #e5e7eb;">역할</th>
+                            </tr>
+                        </thead>
+                        <tbody id="assignUserList">
+                            <tr><td colspan="5" style="text-align:center;padding:1.5rem;color:#9ca3af;">로딩 중...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <!-- 페이징 -->
+                <div id="assignPagination"></div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">닫기</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="submitAssign()">
+                    <i class="fas fa-user-plus"></i> 배정
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     모달: 사용자 이동 (부서 트리 선택)
+     ════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalMoveUser" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable" style="max-width:440px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-arrows-up-down-left-right" style="margin-right:.5rem;"></i>부서 이동</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:1.25rem;">
+
+                <!-- 이동 대상 사용자 -->
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;
+                            padding:.8rem 1rem;margin-bottom:1rem;font-size:.85rem;">
+                    <div style="color:#6b7280;font-size:.78rem;margin-bottom:.2rem;">이동할 사용자</div>
+                    <div style="font-weight:700;" id="moveUserName"></div>
+                    <div style="color:#9ca3af;font-size:.78rem;margin-top:.2rem;">
+                        현재 부서: <span id="moveUserCurrentDept"></span>
+                    </div>
+                </div>
+
+                <div style="font-size:.82rem;font-weight:600;color:#374151;margin-bottom:.6rem;">이동할 부서를 선택하세요</div>
+
+                <!-- 부서 없음 옵션 -->
+                <div id="moveNoDeptBtn"
+                     style="cursor:pointer;padding:.32rem .6rem;border-radius:6px;display:flex;align-items:center;
+                            gap:.5rem;margin-bottom:.3rem;border:1px dashed #d1d5db;"
+                     onclick="selectMoveUserTarget('')">
+                    <i class="fas fa-ban" style="color:#9ca3af;font-size:.8rem;width:14px;"></i>
+                    <span style="font-size:.85rem;">부서 없음 (해제)</span>
+                </div>
+
+                <div id="moveUserTreeContainer"
+                     style="font-size:.88rem;line-height:1.7;max-height:300px;overflow-y:auto;
+                            border:1px solid #e5e7eb;border-radius:6px;padding:.5rem;">
+                    <div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">로딩 중...</div>
+                </div>
+
+                <div style="margin-top:.8rem;padding:.5rem .8rem;background:#f0fdf4;border-radius:6px;
+                            font-size:.83rem;display:flex;align-items:center;gap:.5rem;">
+                    <i class="fas fa-check-circle" style="color:#16a34a;"></i>
+                    <span style="color:#6b7280;">선택:</span>
+                    <span id="moveUserSelectedLabel" style="font-weight:700;color:#1e293b;">—</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">닫기</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="submitMoveUser()">
+                    <i class="fas fa-arrows-up-down-left-right"></i> 이동 확정
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     JavaScript
+     ════════════════════════════════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/common.js}"></script>
+<script th:inline="javascript">
+    // ── 상태 변수 ─────────────────────────────────────────────────────────────
+    let allDepts          = [];   // 전체 부서 목록
+    let selectedDept      = null; // 현재 선택된 부서 객체 {deptOid, deptCode, deptName}
+    let deptSearchKw      = '';   // 부서 트리 검색어
+    let assignUserOid     = '';   // 배정 모달에서 선택된 사용자 OID
+    let moveUserOid       = '';   // 이동 모달 대상 사용자 OID
+    let moveUserTargetOid = '';   // 이동 모달에서 선택된 목표 부서 OID
+    let userCurrentPage   = 0;   // 사용자 패널 현재 페이지
+    let assignCurrentPage = 0;   // 배정 모달 현재 페이지
+    let assignCurrentKw   = '';  // 배정 모달 현재 검색어
+
+    // ── 초기화 ────────────────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', loadDeptTree);
+
+    // ── 부서 트리 로드 ────────────────────────────────────────────────────────
+    function loadDeptTree() {
+        fetch('/org/api/depts?includeDeleted=false')
+            .then(r => r.json())
+            .then(data => {
+                allDepts = data.filter(d => !d.deletedAt); // 삭제된 부서 제외
+                renderDeptTree();
+                if (selectedDept) {
+                    reloadUserPanel();
+                } else {
+                    // 루트(본부) 자동 선택
+                    const oidSet = new Set(allDepts.map(d => d.deptOid));
+                    const root = allDepts
+                        .filter(d => d.useYn === 'Y')
+                        .sort((a, b) => a.sortOrder - b.sortOrder)
+                        .find(d => !d.parentDeptOid || !oidSet.has(d.parentDeptOid));
+                    if (root) selectDept(root.deptOid, root.deptCode, root.deptName);
+                }
+            })
+            .catch(() => {
+                document.getElementById('deptTree').innerHTML =
+                    '<div style="color:#ef4444;font-size:.83rem;">로드 실패</div>';
+            });
+    }
+
+    // ── 부서 트리 검색 ────────────────────────────────────────────────────────
+    function filterDeptTree() {
+        deptSearchKw = document.getElementById('treeSearch').value.trim().toLowerCase();
+        renderDeptTree();
+    }
+
+    function renderDeptTree() {
+        const treeEl = document.getElementById('deptTree');
+        const depts  = allDepts.filter(d => d.useYn === 'Y'); // 사용 중인 부서만
+
+        // 검색 필터
+        let filtered = depts;
+        let matchedOids = new Set();
+        if (deptSearchKw) {
+            depts.forEach(d => {
+                if (d.deptName.toLowerCase().includes(deptSearchKw) ||
+                    d.deptCode.toLowerCase().includes(deptSearchKw)) {
+                    matchedOids.add(d.deptOid);
+                }
+            });
+            // 일치 부서의 상위 OID 수집
+            const oidToParent = {};
+            depts.forEach(d => { oidToParent[d.deptOid] = d.parentDeptOid; });
+            const visible = new Set(matchedOids);
+            matchedOids.forEach(oid => {
+                let cur = oidToParent[oid];
+                while (cur) { visible.add(cur); cur = oidToParent[cur]; }
+            });
+            filtered = depts.filter(d => visible.has(d.deptOid));
+        }
+
+        if (filtered.length === 0) {
+            treeEl.innerHTML = '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">검색 결과 없음</div>';
+            return;
+        }
+
+        const oidSet = new Set(filtered.map(d => d.deptOid));
+        const roots  = filtered.filter(d => !d.parentDeptOid || !oidSet.has(d.parentDeptOid));
+        treeEl.innerHTML = buildDeptTree(roots, filtered, 0, matchedOids);
+    }
+
+    function buildDeptTree(nodes, all, depth, matchedOids) {
+        let html = '';
+        nodes.sort((a, b) => a.sortOrder - b.sortOrder);
+        for (const node of nodes) {
+            const children  = all.filter(d => d.parentDeptOid === node.deptOid);
+            const indent    = depth * 14;
+            const isSelected = selectedDept && selectedDept.deptOid === node.deptOid;
+            const isMatched  = matchedOids.size > 0 && matchedOids.has(node.deptOid);
+
+            let style = `cursor:pointer;padding:.28rem .5rem;border-radius:6px;display:flex;align-items:center;gap:.5rem;`;
+            if (isSelected) style += 'background:#eff6ff;font-weight:700;color:#2563eb;';
+            if (isMatched && !isSelected) style += 'border-left:3px solid #2563eb;padding-left:.35rem;';
+
+            const nameHtml = deptSearchKw
+                ? node.deptName.replace(new RegExp(deptSearchKw.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi'),
+                    m => `<mark style="background:#fef08a;padding:0;border-radius:2px;">${m}</mark>`)
+                : node.deptName;
+
+            html += `<div style="margin-left:${indent}px;">
+                <div style="${style}" onclick="selectDept('${node.deptOid}','${node.deptCode}','${node.deptName.replace(/'/g,"\\'")}')">
+                    <i class="fas ${children.length ? 'fa-folder' : 'fa-building'}"
+                       style="color:${isSelected?'#2563eb':'#6b7280'};font-size:.8rem;width:14px;"></i>
+                    <span>${nameHtml}</span>
+                    <span style="font-size:.74rem;color:#9ca3af;">(${node.deptCode})</span>
+                </div>`;
+            if (children.length) html += buildDeptTree(children, all, depth + 1, matchedOids);
+            html += `</div>`;
+        }
+        return html;
+    }
+
+    // ── 부서 선택 → 사용자 패널 로드 ────────────────────────────────────────
+    function selectDept(deptOid, deptCode, deptName) {
+        selectedDept = { deptOid, deptCode, deptName };
+        userCurrentPage = 0; // 부서 변경 시 페이지 초기화
+        renderDeptTree();
+        reloadUserPanel();
+    }
+
+    function reloadUserPanel(keyword, page) {
+        if (!selectedDept) return;
+        if (keyword !== undefined) userCurrentPage = 0; // 검색어 변경 시 첫 페이지로
+        if (page !== undefined) userCurrentPage = page;
+        const kw = keyword !== undefined ? keyword
+            : (document.getElementById('userSearch') ? document.getElementById('userSearch').value : '');
+        const url = `/org/api/dept-users?deptOid=${encodeURIComponent(selectedDept.deptOid)}&keyword=${encodeURIComponent(kw)}&page=${userCurrentPage}`;
+        fetch(url).then(r => r.json()).then(renderUserPanel);
+    }
+
+    function goUserPage(page) {
+        reloadUserPanel(undefined, page);
+    }
+
+    // ── 사용자 패널 렌더링 ────────────────────────────────────────────────────
+    function renderUserPanel(data) {
+        const panel = document.getElementById('userPanel');
+        if (data.error) { panel.innerHTML = `<div style="color:#ef4444;">${data.error}</div>`; return; }
+
+        const users           = data.users           || [];
+        const concurrentUsers = data.concurrentUsers || [];
+        const deptName        = data.deptName        || '';
+
+        const roleMap = { ADMIN: ['bg-primary','관리자'], USER: ['bg-success','일반'] };
+        const statMap = { ACTIVE:['bg-success','활성'], LOCKED:['bg-danger','잠금'],
+                          DORMANT:['bg-secondary','휴면'], OUT:['bg-dark','탈퇴'] };
+
+        const colStyle = 'padding:.6rem .8rem;font-weight:700;font-size:.75rem;color:#6b7280;';
+
+        function makeUserRow(u, isConcurrent) {
+            const [rc, rl] = roleMap[u.role] || ['bg-secondary', u.role];
+            const [sc, sl] = statMap[u.status] || ['bg-secondary', u.status];
+            const badge = isConcurrent
+                ? `<span class="badge" style="background:#fef9c3;color:#a16207;font-size:.72rem;margin-right:.3rem;">겸직</span>`
+                : '';
+            const actions = isConcurrent
+                ? `<button class="btn btn-xs btn-outline-danger" style="font-size:.75rem;padding:2px 8px;"
+                           onclick="removeConcurrent('${u.mapOid}','${u.name}')">
+                       <i class="fas fa-user-minus"></i> 겸직 해제
+                   </button>`
+                : `<button class="btn btn-xs btn-outline-secondary" style="font-size:.75rem;padding:2px 8px;margin-right:3px;"
+                           onclick="openMoveUserModal('${u.oid}','${u.name} (${u.userId})','${u.deptCode||''}')">
+                       <i class="fas fa-arrows-up-down-left-right"></i> 이동
+                   </button>
+                   <button class="btn btn-xs btn-outline-danger" style="font-size:.75rem;padding:2px 8px;"
+                           onclick="unassignUser('${u.oid}','${u.name}')">
+                       <i class="fas fa-user-minus"></i> 해제
+                   </button>`;
+            return `<tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:.6rem .8rem;font-weight:600;font-size:.88rem;">${badge}${u.name}</td>
+                <td style="padding:.6rem .8rem;font-size:.84rem;color:#6b7280;">${u.userId}</td>
+                <td style="padding:.6rem .8rem;font-size:.82rem;color:#9ca3af;">${u.email || '—'}</td>
+                <td style="padding:.6rem .8rem;font-size:.82rem;color:#9ca3af;">${u.phone || '—'}</td>
+                <td style="padding:.6rem .8rem;"><span class="badge ${rc}">${rl}</span></td>
+                <td style="padding:.6rem .8rem;"><span class="badge ${sc}">${sl}</span>
+                    ${u.lockYn==='Y'?'<span class="badge bg-danger ms-1">잠금</span>':''}</td>
+                <td style="padding:.6rem .8rem;white-space:nowrap;">${actions}</td>
+            </tr>`;
+        }
+
+        const allRows = [
+            ...users.map(u => makeUserRow(u, false)),
+            ...concurrentUsers.map(u => makeUserRow(u, true))
+        ];
+
+        const userRows = allRows.length === 0
+            ? `<tr><td colspan="7" style="text-align:center;padding:2rem;color:#9ca3af;">이 부서에 등록된 사용자가 없습니다.</td></tr>`
+            : allRows.join('');
+
+        const totalElements  = data.totalElements    || 0;
+        const totalPages     = data.totalPages       || 0;
+        const currentPage    = data.currentPage      || 0;
+        const concurrentCount = concurrentUsers.length;
+        const countLabel = concurrentCount > 0
+            ? `${totalElements}명 <span style="color:#a16207;font-size:.78rem;">(겸직 ${concurrentCount}명 포함)</span>`
+            : `${totalElements}명`;
+
+        panel.innerHTML = `
+            <!-- 헤더 -->
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem;">
+                <div>
+                    <span style="font-size:1rem;font-weight:700;">${deptName}</span>
+                    <span style="font-size:.82rem;color:#9ca3af;margin-left:.5rem;">총 ${countLabel}</span>
+                </div>
+                <div style="display:flex;gap:.5rem;align-items:center;">
+                    <!-- 검색 -->
+                    <div style="position:relative;">
+                        <i class="fas fa-search" style="position:absolute;left:.55rem;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:.78rem;pointer-events:none;"></i>
+                        <input type="text" id="userSearch" placeholder="이름·아이디 검색"
+                               oninput="reloadUserPanel(this.value)"
+                               style="padding:.38rem .7rem .38rem 1.8rem;font-size:.83rem;border:1px solid #d1d5db;
+                                      border-radius:6px;outline:none;width:180px;">
+                    </div>
+                    <!-- 배정 버튼 -->
+                    <button type="button" class="btn btn-sm btn-primary" onclick="openAssignModal()">
+                        <i class="fas fa-user-plus"></i> 사용자 배정
+                    </button>
+                </div>
+            </div>
+            <!-- 테이블 -->
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:.845rem;">
+                    <thead>
+                        <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb;">
+                            <th style="${colStyle}text-align:left;">이름</th>
+                            <th style="${colStyle}">아이디</th>
+                            <th style="${colStyle}">이메일</th>
+                            <th style="${colStyle}">전화번호</th>
+                            <th style="${colStyle}">역할</th>
+                            <th style="${colStyle}">상태</th>
+                            <th style="${colStyle}">관리</th>
+                        </tr>
+                    </thead>
+                    <tbody>${userRows}</tbody>
+                </table>
+            </div>
+            ${buildPagination(currentPage, totalPages, 'goUserPage')}`;
+    }
+
+    // 겸직 해제
+    function removeConcurrent(mapOid, userName) {
+        if (!confirm(`"${userName}"의 겸직을 해제하시겠습니까?`)) return;
+        const form = new FormData();
+        appendCsrf(form);
+        fetch(`/user/api/org-maps/${mapOid}/delete`, { method:'POST', body:form })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('겸직이 해제되었습니다.', true);
+                    reloadUserPanel();
+                } else {
+                    showToast(data.message || '해제 실패', false);
+                }
+            });
+    }
+
+    // ── 사용자 배정 모달 ──────────────────────────────────────────────────────
+    function openAssignModal() {
+        if (!selectedDept) return;
+        document.getElementById('assignDeptName').textContent =
+            `${selectedDept.deptName} (${selectedDept.deptCode})`;
+        document.getElementById('assignSearch').value = '';
+        assignUserOid     = '';
+        assignCurrentPage = 0;
+        assignCurrentKw   = '';
+        new bootstrap.Modal(document.getElementById('modalAssign')).show();
+        fetchAssignableUsers('', 0);
+    }
+
+    let assignSearchTimer = null;
+    function searchAssignableUsers() {
+        clearTimeout(assignSearchTimer);
+        assignSearchTimer = setTimeout(() => {
+            assignCurrentKw   = document.getElementById('assignSearch').value.trim();
+            assignCurrentPage = 0;
+            fetchAssignableUsers(assignCurrentKw, 0);
+        }, 250);
+    }
+
+    function goAssignPage(page) {
+        fetchAssignableUsers(assignCurrentKw, page);
+    }
+
+    function fetchAssignableUsers(kw, page) {
+        assignCurrentPage = page;
+        document.getElementById('assignUserList').innerHTML =
+            '<tr><td colspan="5" style="text-align:center;padding:1.5rem;color:#9ca3af;">로딩 중...</td></tr>';
+        document.getElementById('assignPagination').innerHTML = '';
+        fetch(`/org/api/assignable-users?keyword=${encodeURIComponent(kw)}&page=${page}`)
+            .then(r => r.json())
+            .then(data => {
+                const users         = data.users         || [];
+                const totalPages    = data.totalPages    || 0;
+                const totalElements = data.totalElements || 0;
+                const tbody = document.getElementById('assignUserList');
+                if (users.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:1.5rem;color:#9ca3af;">검색 결과 없음</td></tr>';
+                    document.getElementById('assignTotalInfo').textContent = '';
+                    return;
+                }
+                document.getElementById('assignTotalInfo').textContent = `총 ${totalElements}명`;
+                tbody.innerHTML = users.map(u => `
+                    <tr id="assign-row-${u.oid}" style="cursor:pointer;border-bottom:1px solid #f3f4f6;"
+                        onclick="selectAssignUser('${u.oid}')">
+                        <td style="padding:.5rem .8rem;text-align:center;">
+                            <input type="radio" name="assignUser" value="${u.oid}"
+                                   ${u.oid === assignUserOid ? 'checked' : ''}>
+                        </td>
+                        <td style="padding:.5rem .8rem;font-size:.84rem;">${u.userId}</td>
+                        <td style="padding:.5rem .8rem;font-size:.84rem;font-weight:600;">${u.name}</td>
+                        <td style="padding:.5rem .8rem;font-size:.82rem;color:#9ca3af;">${u.deptCode || '(없음)'}</td>
+                        <td style="padding:.5rem .8rem;">
+                            <span class="badge ${u.role==='ADMIN'?'bg-primary':'bg-success'}">${u.role==='ADMIN'?'관리자':'일반'}</span>
+                        </td>
+                    </tr>`).join('');
+                document.getElementById('assignPagination').innerHTML =
+                    buildPagination(page, totalPages, 'goAssignPage');
+            });
+    }
+
+    function selectAssignUser(oid) {
+        assignUserOid = oid;
+        document.querySelectorAll('[name="assignUser"]').forEach(r => { r.checked = r.value === oid; });
+    }
+
+    function submitAssign() {
+        if (!assignUserOid) { showToast('배정할 사용자를 선택하세요.', false); return; }
+        if (!selectedDept)  { showToast('부서를 먼저 선택하세요.', false); return; }
+
+        const form = new FormData();
+        form.append('deptOid', selectedDept.deptOid);
+        appendCsrf(form);
+        fetch(`/org/api/users/${assignUserOid}/assign`, { method:'POST', body:form })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('modalAssign'))?.hide();
+                    showToast('사용자가 배정되었습니다.', true);
+                    reloadUserPanel();
+                } else {
+                    showToast(data.message || '배정 실패', false);
+                }
+            });
+    }
+
+    // ── 사용자 이동 모달 ──────────────────────────────────────────────────────
+    function openMoveUserModal(userOid, userLabel, currentDeptCode) {
+        moveUserOid = userOid;
+        moveUserTargetOid = '';
+        document.getElementById('moveUserName').textContent = userLabel;
+        document.getElementById('moveUserCurrentDept').textContent = currentDeptCode || '(없음)';
+        document.getElementById('moveUserSelectedLabel').textContent = '—';
+
+        // 이동 불가 OID: 현재 선택된 부서 자신 (원래 부서)
+        renderMoveUserTree();
+
+        // 부서 없음 버튼 스타일 초기화
+        const btn = document.getElementById('moveNoDeptBtn');
+        btn.style.background = ''; btn.style.fontWeight = ''; btn.style.color = '';
+
+        new bootstrap.Modal(document.getElementById('modalMoveUser')).show();
+    }
+
+    function renderMoveUserTree() {
+        const container = document.getElementById('moveUserTreeContainer');
+        const depts = allDepts.filter(d => d.useYn === 'Y');
+        if (depts.length === 0) {
+            container.innerHTML = '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">부서 없음</div>';
+            return;
+        }
+        const oidSet = new Set(depts.map(d => d.deptOid));
+        const roots  = depts.filter(d => !d.parentDeptOid || !oidSet.has(d.parentDeptOid));
+        container.innerHTML = buildMoveUserTree(roots, depts, 0);
+    }
+
+    function buildMoveUserTree(nodes, all, depth) {
+        let html = '';
+        nodes.sort((a, b) => a.sortOrder - b.sortOrder);
+        for (const node of nodes) {
+            const children = all.filter(d => d.parentDeptOid === node.deptOid);
+            const indent   = depth * 14;
+            const isSel    = moveUserTargetOid === node.deptOid;
+            const style    = `cursor:pointer;padding:.3rem .5rem;border-radius:6px;display:flex;align-items:center;gap:.5rem;`
+                           + (isSel ? 'background:#eff6ff;font-weight:700;color:#2563eb;' : '');
+
+            html += `<div style="margin-left:${indent}px;">
+                <div id="mu-node-${node.deptOid}" style="${style}" onclick="selectMoveUserTarget('${node.deptOid}','${node.deptName.replace(/'/g,"\\'")}','${node.deptCode}')">
+                    <i class="fas ${children.length?'fa-folder':'fa-building'}" style="color:${isSel?'#2563eb':'#6b7280'};font-size:.8rem;width:14px;"></i>
+                    <span>${node.deptName}</span>
+                    <span style="font-size:.74rem;color:#9ca3af;">(${node.deptCode})</span>
+                </div>`;
+            if (children.length) html += buildMoveUserTree(children, all, depth + 1);
+            html += `</div>`;
+        }
+        return html;
+    }
+
+    function selectMoveUserTarget(deptOid, deptName, deptCode) {
+        // 이전 선택 해제
+        if (moveUserTargetOid) {
+            const prev = document.getElementById(`mu-node-${moveUserTargetOid}`);
+            if (prev) { prev.style.background=''; prev.style.fontWeight=''; prev.style.color=''; prev.querySelector('i').style.color='#6b7280'; }
+        }
+        moveUserTargetOid = deptOid;
+        if (deptOid) {
+            const cur = document.getElementById(`mu-node-${deptOid}`);
+            if (cur) { cur.style.background='#eff6ff'; cur.style.fontWeight='700'; cur.style.color='#2563eb'; cur.querySelector('i').style.color='#2563eb'; }
+            document.getElementById('moveUserSelectedLabel').textContent = `${deptName} (${deptCode})`;
+        } else {
+            document.getElementById('moveUserSelectedLabel').textContent = '부서 없음 (해제)';
+        }
+        // 부서없음 버튼 스타일 초기화
+        const btn = document.getElementById('moveNoDeptBtn');
+        if (!deptOid) { btn.style.background='#eff6ff'; btn.style.fontWeight='700'; btn.style.color='#2563eb'; }
+        else          { btn.style.background=''; btn.style.fontWeight=''; btn.style.color=''; }
+    }
+
+    function submitMoveUser() {
+        const form = new FormData();
+        appendCsrf(form);
+
+        let url;
+        if (!moveUserTargetOid) {
+            // 부서 해제
+            url = `/org/api/users/${moveUserOid}/unassign`;
+        } else {
+            // 부서 이동
+            form.append('targetDeptOid', moveUserTargetOid);
+            url = `/org/api/users/${moveUserOid}/move-dept`;
+        }
+
+        fetch(url, { method:'POST', body:form })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('modalMoveUser'))?.hide();
+                    showToast(data.message, true);
+                    reloadUserPanel();
+                } else {
+                    showToast(data.message || '처리 실패', false);
+                }
+            });
+    }
+
+    // ── 부서 해제 (직접) ──────────────────────────────────────────────────────
+    function unassignUser(userOid, userName) {
+        if (!confirm(`"${userName}"의 부서 배정을 해제하시겠습니까?`)) return;
+        const form = new FormData();
+        appendCsrf(form);
+        fetch(`/org/api/users/${userOid}/unassign`, { method:'POST', body:form })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('부서 배정이 해제되었습니다.', true);
+                    reloadUserPanel();
+                } else {
+                    showToast(data.message || '해제 실패', false);
+                }
+            });
+    }
+
+    // ── 페이징 HTML 생성 ──────────────────────────────────────────────────────
+    function buildPagination(currentPage, totalPages, onClickFn) {
+        if (totalPages <= 1) return '';
+        const btnBase = 'style="padding:.25rem .55rem;font-size:.78rem;min-width:28px;border:1px solid #d1d5db;border-radius:5px;cursor:pointer;background:#fff;color:#374151;"';
+        const btnAct  = 'style="padding:.25rem .55rem;font-size:.78rem;min-width:28px;border:1px solid #2563eb;border-radius:5px;background:#2563eb;color:#fff;font-weight:700;"';
+        const btnDis  = 'style="padding:.25rem .55rem;font-size:.78rem;min-width:28px;border:1px solid #e5e7eb;border-radius:5px;background:#f9fafb;color:#d1d5db;cursor:default;"';
+        let html = '<div style="display:flex;justify-content:center;align-items:center;gap:.3rem;margin-top:.9rem;">';
+        // 이전
+        html += currentPage > 0
+            ? `<button ${btnBase} onclick="${onClickFn}(${currentPage-1})"><i class="fas fa-chevron-left"></i></button>`
+            : `<button ${btnDis} disabled><i class="fas fa-chevron-left"></i></button>`;
+        // 페이지 번호 (앞뒤 2페이지씩)
+        const start = Math.max(0, currentPage - 2);
+        const end   = Math.min(totalPages - 1, currentPage + 2);
+        if (start > 0) html += `<button ${btnBase} onclick="${onClickFn}(0)">1</button>${start > 1 ? '<span style="color:#9ca3af;padding:0 .2rem;">…</span>' : ''}`;
+        for (let i = start; i <= end; i++) {
+            html += i === currentPage
+                ? `<button ${btnAct}>${i+1}</button>`
+                : `<button ${btnBase} onclick="${onClickFn}(${i})">${i+1}</button>`;
+        }
+        if (end < totalPages - 1) html += `${end < totalPages - 2 ? '<span style="color:#9ca3af;padding:0 .2rem;">…</span>' : ''}<button ${btnBase} onclick="${onClickFn}(${totalPages-1})">${totalPages}</button>`;
+        // 다음
+        html += currentPage < totalPages - 1
+            ? `<button ${btnBase} onclick="${onClickFn}(${currentPage+1})"><i class="fas fa-chevron-right"></i></button>`
+            : `<button ${btnDis} disabled><i class="fas fa-chevron-right"></i></button>`;
+        html += '</div>';
+        return html;
+    }
+
+    // ── 공통 유틸 ─────────────────────────────────────────────────────────────
+    function appendCsrf(formData) {
+        const meta = document.querySelector('meta[name="_csrf"]');
+        if (meta) formData.append('_csrf', meta.getAttribute('content'));
+    }
+
+    function showToast(msg, success) {
+        const wrap  = document.getElementById('toast-wrap');
+        const inner = document.getElementById('toast-inner');
+        const icon  = document.getElementById('toast-icon');
+        const text  = document.getElementById('toast-msg');
+        inner.style.background = success ? '#16a34a' : '#dc2626';
+        icon.className  = success ? 'fas fa-check-circle' : 'fas fa-times-circle';
+        text.textContent = msg;
+        wrap.style.display = 'block';
+        setTimeout(() => { wrap.style.display = 'none'; }, 3000);
+    }
+</script>
+
+<footer th:replace="~{include/footer :: footer}"></footer>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<body>
+
+<!-- ── 공통 사이드바 프래그먼트 ────────────────────────────────
+     사용법: <aside th:replace="~{include/sidebar :: sidebar}"></aside>
+     menuTree 는 GlobalControllerAdvice → MenuService.getMenuTreeByRoles() 로
+     현재 사용자 역할에 맞게 필터링된 트리입니다.
+     ──────────────────────────────────────────────────────────── -->
+<aside class="app-sidebar" th:fragment="sidebar">
+<nav class="sidebar-nav">
+
+    <th:block th:each="menu : ${menuTree}">
+
+        <!-- ── ① 하위 메뉴 있음 → 토글 버튼 + 서브메뉴 ────────── -->
+        <div th:if="${!menu.children.isEmpty()}" class="tree-item">
+            <button class="tree-toggle" type="button">
+                <span class="tree-icon">
+                    <i th:class="${menu.icon} ?: 'fas fa-folder'"></i>
+                </span>
+                <span class="tree-label" th:text="${menu.menuName}">메뉴</span>
+                <i class="fas fa-chevron-right tree-arrow"></i>
+            </button>
+            <ul class="tree-submenu">
+                <li th:each="child : ${menu.children}">
+                    <a class="tree-sublink"
+                       th:href="${child.url} ?: '#'"
+                       th:text="${child.menuName}">서브메뉴</a>
+                </li>
+            </ul>
+        </div>
+
+        <!-- ── ② 하위 없고 실제 URL 있음 → 직접 링크 ────────────── -->
+        <a th:if="${menu.children.isEmpty()
+                    and menu.url != null
+                    and !#strings.equals(menu.url, '#')}"
+           class="tree-direct-link"
+           th:href="${menu.url}">
+            <span class="tree-icon">
+                <i th:class="${menu.icon} ?: 'fas fa-circle-dot'"></i>
+            </span>
+            <span class="tree-label" th:text="${menu.menuName}">메뉴</span>
+        </a>
+
+        <!-- ── ③ 하위 없고 URL도 없는 폴더형 → 표시 안 함 ─────── -->
+
+    </th:block>
+
+    <!-- menuTree 비어있을 때 -->
+    <div th:if="${#lists.isEmpty(menuTree)}"
+         style="padding:1rem 1.1rem; font-size:.8rem; color:var(--gray-400);">
+        <i class="fas fa-circle-info" style="margin-right:.4rem;"></i>
+        표시할 메뉴가 없습니다.
+    </div>
+
+</nav>
+</aside>
+
+</body>
+</html>

@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{include/layout :: head('조직도 관리')}"></head>
+<body>
+
+<header th:replace="~{include/header :: header}"></header>
+
+<div class="app-body">
+    <aside th:replace="~{include/sidebar :: sidebar}"></aside>
+
+    <main class="app-content">
+
+        <!-- 페이지 헤더 -->
+        <div class="page-header">
+            <div>
+                <div class="breadcrumb-area">
+                    <i class="fas fa-house"></i>
+                    <i class="fas fa-chevron-right"></i>
+                    <span>조직 관리</span>
+                    <i class="fas fa-chevron-right"></i>
+                    <span>조직도 관리</span>
+                </div>
+                <h2 class="page-title">조직도 관리</h2>
+                <p class="page-subtitle">부서 트리 구조를 조회하고 관리합니다.</p>
+            </div>
+            <button type="button" class="btn-add-menu" data-bs-toggle="modal" data-bs-target="#modalRegister">
+                <i class="fas fa-plus"></i> 부서 등록
+            </button>
+        </div>
+
+        <!-- 토스트 알림 -->
+        <div id="toast-wrap"
+             style="position:fixed;top:1.2rem;right:1.4rem;z-index:9999;min-width:280px;display:none;">
+            <div id="toast-inner"
+                 style="padding:.75rem 1.1rem;border-radius:8px;color:#fff;
+                        font-size:.88rem;font-weight:600;display:flex;align-items:center;gap:.6rem;
+                        box-shadow:0 4px 12px rgba(0,0,0,.18);">
+                <i id="toast-icon"></i>
+                <span id="toast-msg"></span>
+            </div>
+        </div>
+
+        <!-- 옵션 바 -->
+        <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;">
+            <label style="display:flex;align-items:center;gap:.4rem;font-size:.88rem;cursor:pointer;">
+                <input type="checkbox" id="chkIncludeDeleted" onchange="loadTree()">
+                삭제된 부서 포함
+            </label>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="loadTree()">
+                <i class="fas fa-rotate-right"></i> 새로고침
+            </button>
+        </div>
+
+        <!-- 2열 레이아웃 -->
+        <div style="display:flex;gap:1.2rem;align-items:flex-start;">
+
+            <!-- ── 왼쪽: 부서 트리 ──────────────────────────────────────────── -->
+            <div class="card" style="width:320px;flex-shrink:0;min-height:500px;">
+                <div class="card-body" style="padding:1rem;">
+                    <div style="font-size:.85rem;font-weight:700;color:#374151;margin-bottom:.6rem;">
+                        <i class="fas fa-sitemap" style="margin-right:.4rem;color:#2563eb;"></i>부서 트리
+                    </div>
+                    <!-- 검색 입력 -->
+                    <div style="position:relative;margin-bottom:.7rem;">
+                        <i class="fas fa-search" style="position:absolute;left:.6rem;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:.8rem;pointer-events:none;"></i>
+                        <input type="text" id="treeSearch"
+                               placeholder="부서명 또는 코드 검색"
+                               oninput="filterTree()"
+                               style="width:100%;padding:.38rem .7rem .38rem 1.9rem;font-size:.83rem;
+                                      border:1px solid #d1d5db;border-radius:6px;outline:none;box-sizing:border-box;">
+                        <button id="btnClearSearch" onclick="clearSearch()"
+                                style="display:none;position:absolute;right:.5rem;top:50%;transform:translateY(-50%);
+                                       background:none;border:none;cursor:pointer;color:#9ca3af;font-size:.75rem;padding:0;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <!-- 검색 결과 카운트 -->
+                    <div id="searchResultInfo" style="display:none;font-size:.76rem;color:#6b7280;margin-bottom:.4rem;"></div>
+                    <div id="deptTree" style="font-size:.88rem;line-height:1.6;">
+                        <div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">로딩 중...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── 오른쪽: 부서 상세 ────────────────────────────────────────── -->
+            <div class="card" style="flex:1;min-height:500px;">
+                <div class="card-body" id="deptDetail"
+                     style="padding:1.5rem;color:#9ca3af;font-size:.88rem;">
+                    <div style="text-align:center;padding:3rem 0;">
+                        <i class="fas fa-hand-pointer" style="font-size:2rem;margin-bottom:.8rem;display:block;"></i>
+                        왼쪽 트리에서 부서를 선택하면 상세 정보가 표시됩니다.
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- end 2열 레이아웃 -->
+
+    </main>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════
+     모달: 부서 등록
+     ════════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalRegister" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-plus-circle" style="margin-right:.5rem;"></i>부서 등록</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formRegister" novalidate
+                  style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;">
+                <div class="modal-body" style="padding:1.5rem;overflow-y:auto;flex:1;min-height:0;">
+                    <div class="row g-3">
+
+                        <div class="col-md-4">
+                            <label class="form-label modal-label">부서코드 <span style="color:#ef4444;">*</span></label>
+                            <input type="text" id="regDeptCode" name="deptCode" class="modal-input w-100"
+                                   placeholder="예: DEV" maxlength="20" style="text-transform:uppercase;">
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label modal-label">부서명 <span style="color:#ef4444;">*</span></label>
+                            <input type="text" id="regDeptName" name="deptName" class="modal-input w-100"
+                                   placeholder="부서명 입력" maxlength="100">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label modal-label">상위 부서</label>
+                            <select id="regParentDeptOid" name="parentDeptOid" class="modal-input w-100">
+                                <option value="">— 최상위 부서 —</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label modal-label">정렬 순서</label>
+                            <input type="number" id="regSortOrder" name="sortOrder" class="modal-input w-100"
+                                   value="0" min="0">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label modal-label">사용여부</label>
+                            <select id="regUseYn" name="useYn" class="modal-input w-100">
+                                <option value="Y">Y (사용)</option>
+                                <option value="N">N (미사용)</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label modal-label">부서 유형</label>
+                            <input type="text" id="regDeptType" name="deptType" class="modal-input w-100"
+                                   placeholder="예: 본부, 팀, 파트" maxlength="20">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label modal-label">전화번호</label>
+                            <input type="text" id="regDeptTel" name="deptTel" class="modal-input w-100"
+                                   placeholder="예: 02-1234-5678" maxlength="20">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label modal-label">팩스번호</label>
+                            <input type="text" id="regDeptFax" name="deptFax" class="modal-input w-100"
+                                   placeholder="예: 02-1234-5679" maxlength="20">
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label modal-label">주소</label>
+                            <input type="text" id="regDeptAddress" name="deptAddress" class="modal-input w-100"
+                                   placeholder="부서 주소 입력" maxlength="200">
+                        </div>
+
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">닫기</button>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="submitRegister()">
+                        <i class="fas fa-save"></i> 저장
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════
+     모달: 부서 수정
+     ════════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalEdit" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-pen" style="margin-right:.5rem;"></i>부서 수정</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formEdit" novalidate
+                  style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;">
+                <input type="hidden" id="editDeptOid">
+                <div class="modal-body" style="padding:1.5rem;overflow-y:auto;flex:1;min-height:0;">
+                    <div class="row g-3">
+
+                        <div class="col-md-4">
+                            <label class="form-label modal-label">부서코드</label>
+                            <input type="text" id="editDeptCode" class="modal-input w-100" readonly
+                                   style="background:#f3f4f6;color:#6b7280;">
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label modal-label">부서명 <span style="color:#ef4444;">*</span></label>
+                            <input type="text" id="editDeptName" name="deptName" class="modal-input w-100"
+                                   placeholder="부서명 입력" maxlength="100">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label modal-label">상위 부서</label>
+                            <select id="editParentDeptOid" name="parentDeptOid" class="modal-input w-100">
+                                <option value="">— 최상위 부서 —</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label modal-label">정렬 순서</label>
+                            <input type="number" id="editSortOrder" name="sortOrder" class="modal-input w-100"
+                                   min="0">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label modal-label">사용여부</label>
+                            <select id="editUseYn" name="useYn" class="modal-input w-100">
+                                <option value="Y">Y (사용)</option>
+                                <option value="N">N (미사용)</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label modal-label">부서 유형</label>
+                            <input type="text" id="editDeptType" name="deptType" class="modal-input w-100"
+                                   placeholder="예: 본부, 팀, 파트" maxlength="20">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label modal-label">전화번호</label>
+                            <input type="text" id="editDeptTel" name="deptTel" class="modal-input w-100"
+                                   placeholder="예: 02-1234-5678" maxlength="20">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label modal-label">팩스번호</label>
+                            <input type="text" id="editDeptFax" name="deptFax" class="modal-input w-100"
+                                   placeholder="예: 02-1234-5679" maxlength="20">
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label modal-label">주소</label>
+                            <input type="text" id="editDeptAddress" name="deptAddress" class="modal-input w-100"
+                                   placeholder="부서 주소 입력" maxlength="200">
+                        </div>
+
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger btn-sm me-auto" id="btnDelete"
+                            onclick="deleteDept()">
+                        <i class="fas fa-trash"></i> 삭제
+                    </button>
+                    <button type="button" class="btn btn-success btn-sm me-1" id="btnRestore"
+                            style="display:none;" onclick="restoreDept()">
+                        <i class="fas fa-rotate-left"></i> 복원
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">닫기</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="btnEditSave" onclick="submitEdit()">
+                        <i class="fas fa-save"></i> 저장
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════
+     모달: 부서 이동
+     ════════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalMove" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable" style="max-width:480px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-arrows-up-down-left-right" style="margin-right:.5rem;"></i>부서 이동
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:1.25rem;overflow-y:auto;">
+
+                <!-- 이동 대상 부서 정보 -->
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.8rem 1rem;margin-bottom:1rem;font-size:.85rem;">
+                    <div style="color:#6b7280;font-size:.78rem;margin-bottom:.2rem;">이동할 부서</div>
+                    <div style="font-weight:700;color:#1e293b;" id="moveDeptName"></div>
+                    <div style="color:#9ca3af;font-size:.78rem;margin-top:.3rem;">
+                        현재 상위: <span id="moveCurrentParent" style="color:#6b7280;"></span>
+                    </div>
+                </div>
+
+                <!-- 새 상위 부서 선택 트리 -->
+                <div style="font-size:.82rem;font-weight:600;color:#374151;margin-bottom:.6rem;">
+                    새 상위 부서를 선택하세요
+                </div>
+
+                <!-- 최상위로 이동 옵션 -->
+                <div id="moveTopBtn"
+                     style="cursor:pointer;padding:.32rem .6rem;border-radius:6px;display:flex;align-items:center;
+                            gap:.5rem;margin-bottom:.3rem;border:1px dashed #d1d5db;"
+                     onclick="selectMoveToTop()">
+                    <i class="fas fa-globe" style="color:#6b7280;font-size:.8rem;width:14px;"></i>
+                    <span style="font-size:.85rem;">최상위 (상위 부서 없음)</span>
+                </div>
+
+                <div id="moveTreeContainer"
+                     style="font-size:.88rem;line-height:1.7;max-height:320px;overflow-y:auto;
+                            border:1px solid #e5e7eb;border-radius:6px;padding:.5rem;">
+                    <div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">로딩 중...</div>
+                </div>
+
+                <!-- 선택된 항목 표시 -->
+                <div style="margin-top:.8rem;padding:.5rem .8rem;background:#f0fdf4;border-radius:6px;
+                            font-size:.83rem;display:flex;align-items:center;gap:.5rem;">
+                    <i class="fas fa-check-circle" style="color:#16a34a;"></i>
+                    <span style="color:#6b7280;">선택:</span>
+                    <span id="moveSelectedLabel" style="font-weight:700;color:#1e293b;">—</span>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">닫기</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="submitMove()">
+                    <i class="fas fa-arrows-up-down-left-right"></i> 이동 확정
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════
+     JavaScript
+     ════════════════════════════════════════════════════════════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/common.js}"></script>
+<script th:inline="javascript">
+    let allDepts = [];        // 전체 부서 배열 (서버로부터 받은 원본)
+    let selectedOid = null;  // 현재 선택된 부서 OID
+    let searchKeyword = '';  // 트리 검색 키워드
+
+    // ── 페이지 로드 시 트리 로드 ──────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', loadTree);
+
+    // ── 부서 목록 로드 ────────────────────────────────────────────────────────
+    function loadTree() {
+        const includeDeleted = document.getElementById('chkIncludeDeleted').checked;
+        fetch(`/org/api/depts?includeDeleted=${includeDeleted}`)
+            .then(r => r.json())
+            .then(data => {
+                allDepts = data;
+                renderTree(data);
+                updateParentSelects(data);
+                // 이전에 선택한 부서가 있으면 상세 갱신, 없으면 루트(본부) 자동 선택
+                if (selectedOid) {
+                    const dept = allDepts.find(d => d.deptOid === selectedOid);
+                    if (dept) renderDetail(dept);
+                } else {
+                    const oidSet = new Set(data.map(d => d.deptOid));
+                    const root = data
+                        .filter(d => !d.deletedAt)
+                        .sort((a, b) => a.sortOrder - b.sortOrder)
+                        .find(d => !d.parentDeptOid || !oidSet.has(d.parentDeptOid));
+                    if (root) selectDept(root.deptOid);
+                }
+            })
+            .catch(() => {
+                document.getElementById('deptTree').innerHTML =
+                    '<div style="color:#ef4444;font-size:.83rem;padding:.5rem;">로드 실패</div>';
+            });
+    }
+
+    // ── 검색 ─────────────────────────────────────────────────────────────────
+    function filterTree() {
+        searchKeyword = document.getElementById('treeSearch').value.trim();
+        document.getElementById('btnClearSearch').style.display = searchKeyword ? 'block' : 'none';
+        renderTree(allDepts);
+    }
+
+    function clearSearch() {
+        document.getElementById('treeSearch').value = '';
+        searchKeyword = '';
+        document.getElementById('btnClearSearch').style.display = 'none';
+        document.getElementById('searchResultInfo').style.display = 'none';
+        renderTree(allDepts);
+    }
+
+    /** 검색 키워드로 일치 OID + 그 상위 OID 집합 반환. 키워드 없으면 null */
+    function computeFilterInfo(depts, keyword) {
+        if (!keyword) return null;
+        const kw = keyword.toLowerCase();
+
+        // 일치 부서
+        const matched = new Set(
+            depts.filter(d =>
+                d.deptName.toLowerCase().includes(kw) ||
+                d.deptCode.toLowerCase().includes(kw)
+            ).map(d => d.deptOid)
+        );
+
+        // 일치 부서의 모든 상위 OID 수집 (트리 경로 표시용)
+        const oidToParent = {};
+        depts.forEach(d => { oidToParent[d.deptOid] = d.parentDeptOid; });
+
+        const visible = new Set(matched);
+        matched.forEach(oid => {
+            let cur = oidToParent[oid];
+            while (cur) { visible.add(cur); cur = oidToParent[cur]; }
+        });
+
+        return { matched, visible };
+    }
+
+    /** 텍스트에서 키워드를 노란 하이라이트로 감쌈 */
+    function highlight(text, keyword) {
+        if (!keyword) return text;
+        const kw = keyword.toLowerCase();
+        const idx = text.toLowerCase().indexOf(kw);
+        if (idx === -1) return text;
+        return text.substring(0, idx)
+            + `<mark style="background:#fef08a;padding:0;border-radius:2px;">${text.substring(idx, idx + keyword.length)}</mark>`
+            + text.substring(idx + keyword.length);
+    }
+
+    // ── 트리 렌더링 ───────────────────────────────────────────────────────────
+    function renderTree(depts) {
+        const treeEl   = document.getElementById('deptTree');
+        const infoEl   = document.getElementById('searchResultInfo');
+        const filterInfo = computeFilterInfo(depts, searchKeyword);
+
+        // 검색 결과 카운트 표시
+        if (filterInfo) {
+            const matchCount = filterInfo.matched.size;
+            infoEl.style.display = 'block';
+            infoEl.textContent   = matchCount > 0
+                ? `검색 결과: ${matchCount}건`
+                : '검색 결과가 없습니다.';
+        } else {
+            infoEl.style.display = 'none';
+        }
+
+        const oidSet = new Set(depts.map(d => d.deptOid));
+        const roots  = depts.filter(d => !d.parentDeptOid || !oidSet.has(d.parentDeptOid));
+
+        if (roots.length === 0) {
+            treeEl.innerHTML = '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">등록된 부서가 없습니다.</div>';
+            return;
+        }
+
+        const html = buildTreeHtml(roots, depts, 0, filterInfo);
+        treeEl.innerHTML = html || '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">검색 결과가 없습니다.</div>';
+    }
+
+    function buildTreeHtml(nodes, all, depth, filterInfo) {
+        let html = '';
+        nodes.sort((a, b) => a.sortOrder - b.sortOrder);
+
+        for (const node of nodes) {
+            // 검색 필터 적용 — visible 집합에 없으면 건너뜀
+            if (filterInfo && !filterInfo.visible.has(node.deptOid)) continue;
+
+            const children    = all.filter(d => d.parentDeptOid === node.deptOid);
+            const isDeleted   = !!node.deletedAt;
+            const isDisabled  = node.useYn !== 'Y';
+            const hasChildren = children.length > 0;
+            const isMatched   = filterInfo ? filterInfo.matched.has(node.deptOid) : false;
+
+            const indent    = depth * 16;
+            const isSelected = node.deptOid === selectedOid;
+
+            let icon      = hasChildren ? 'fa-folder' : 'fa-building';
+            let iconColor = isDeleted ? '#d1d5db' : (isDisabled ? '#f59e0b' : '#2563eb');
+
+            let labelStyle = `cursor:pointer;padding:.28rem .5rem;border-radius:6px;display:flex;align-items:center;gap:.5rem;`;
+            if (isSelected) labelStyle += 'background:#eff6ff;font-weight:700;';
+            if (isDeleted)  labelStyle += 'color:#d1d5db;text-decoration:line-through;';
+            else if (isDisabled) labelStyle += 'color:#f59e0b;';
+            // 검색 일치 항목은 좌측에 파란 액센트 바
+            if (isMatched && !isSelected) labelStyle += 'border-left:3px solid #2563eb;padding-left:.35rem;';
+
+            let badge = '';
+            if (isDeleted)  badge = '<span style="font-size:.7rem;background:#fee2e2;color:#dc2626;padding:1px 5px;border-radius:4px;margin-left:.3rem;">삭제됨</span>';
+            else if (isDisabled) badge = '<span style="font-size:.7rem;background:#fef3c7;color:#b45309;padding:1px 5px;border-radius:4px;margin-left:.3rem;">미사용</span>';
+
+            const nameHtml = highlight(node.deptName, searchKeyword);
+            const codeHtml = highlight(node.deptCode, searchKeyword);
+
+            html += `<div style="margin-left:${indent}px;">
+                <div style="${labelStyle}" onclick="selectDept('${node.deptOid}')">
+                    <i class="fas ${icon}" style="color:${iconColor};font-size:.8rem;width:14px;"></i>
+                    <span>${nameHtml}</span>
+                    <span style="font-size:.75rem;color:#9ca3af;">(${codeHtml})</span>
+                    ${badge}
+                </div>`;
+
+            if (hasChildren) {
+                html += buildTreeHtml(children, all, depth + 1, filterInfo);
+            }
+
+            html += `</div>`;
+        }
+        return html;
+    }
+
+    // ── 부서 선택 → 상세 패널 ────────────────────────────────────────────────
+    function selectDept(deptOid) {
+        selectedOid = deptOid;
+        const dept = allDepts.find(d => d.deptOid === deptOid);
+        if (!dept) return;
+        renderDetail(dept);
+        renderTree(allDepts); // 선택 표시 갱신
+    }
+
+    function renderDetail(dept) {
+        const isDeleted = !!dept.deletedAt;
+
+        const rows = [
+            ['부서 OID',    dept.deptOid],
+            ['부서코드',    dept.deptCode],
+            ['부서명',      dept.deptName],
+            ['상위 부서',   getParentName(dept.parentDeptOid)],
+            ['정렬 순서',   dept.sortOrder],
+            ['사용여부',    dept.useYn === 'Y'
+                ? '<span class="badge bg-success">Y</span>'
+                : '<span class="badge bg-warning text-dark">N</span>'],
+            ['부서 유형',   dept.deptType || '—'],
+            ['전화번호',    dept.deptTel || '—'],
+            ['팩스번호',    dept.deptFax || '—'],
+            ['주소',        dept.deptAddress || '—'],
+            ['생성 일시',   formatDate(dept.createdAt) + (dept.createdBy ? ` (${dept.createdBy})` : '')],
+            ['수정 일시',   formatDate(dept.updatedAt) + (dept.updatedBy ? ` (${dept.updatedBy})` : '')],
+        ];
+
+        if (isDeleted) {
+            rows.push(['삭제 일시', formatDate(dept.deletedAt) + (dept.deletedBy ? ` (${dept.deletedBy})` : '')]);
+        }
+
+        let tableHtml = rows.map(([k, v]) =>
+            `<tr>
+               <td style="width:120px;font-weight:600;color:#6b7280;font-size:.82rem;padding:.45rem .8rem;">${k}</td>
+               <td style="font-size:.88rem;padding:.45rem .8rem;">${v}</td>
+             </tr>`
+        ).join('');
+
+        const deletedBanner = isDeleted
+            ? `<div style="background:#fee2e2;color:#dc2626;padding:.6rem 1rem;border-radius:6px;
+                           font-size:.84rem;font-weight:600;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem;">
+                   <i class="fas fa-triangle-exclamation"></i> 삭제된 부서입니다.
+               </div>` : '';
+
+        const actionButtons = isDeleted
+            ? `<div style="display:flex;gap:.5rem;">
+                   <button type="button" class="btn btn-sm btn-outline-primary" onclick="openEditModal('${dept.deptOid}')">
+                       <i class="fas fa-pen"></i> 수정
+                   </button>
+               </div>`
+            : `<div style="display:flex;gap:.5rem;">
+                   <button type="button" class="btn btn-sm btn-outline-primary" onclick="openEditModal('${dept.deptOid}')">
+                       <i class="fas fa-pen"></i> 수정
+                   </button>
+                   <button type="button" class="btn btn-sm btn-outline-secondary" onclick="openMoveModal('${dept.deptOid}')">
+                       <i class="fas fa-arrows-up-down-left-right"></i> 부서 이동
+                   </button>
+                   <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteDeptFromDetail('${dept.deptOid}', '${dept.deptName.replace(/'/g, "\\'")}')">
+                       <i class="fas fa-trash"></i> 삭제
+                   </button>
+               </div>`;
+
+        document.getElementById('deptDetail').innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                <div>
+                    <span style="font-size:1rem;font-weight:700;">${dept.deptName}</span>
+                    <span style="font-size:.82rem;color:#9ca3af;margin-left:.5rem;">(${dept.deptCode})</span>
+                </div>
+                ${actionButtons}
+            </div>
+            ${deletedBanner}
+            <table style="width:100%;border-collapse:collapse;">
+                <tbody>${tableHtml}</tbody>
+            </table>
+        `;
+    }
+
+    function getParentName(parentOid) {
+        if (!parentOid) return '— (최상위)';
+        const parent = allDepts.find(d => d.deptOid === parentOid);
+        return parent ? `${parent.deptName} (${parent.deptCode})` : parentOid;
+    }
+
+    function formatDate(dtStr) {
+        if (!dtStr) return '—';
+        return dtStr.replace('T', ' ').substring(0, 16);
+    }
+
+    // ── 상위 부서 select 갱신 ─────────────────────────────────────────────────
+    function updateParentSelects(depts) {
+        const options = depts
+            .filter(d => !d.deletedAt)
+            .sort((a, b) => a.sortOrder - b.sortOrder)
+            .map(d => `<option value="${d.deptOid}">${d.deptName} (${d.deptCode})</option>`)
+            .join('');
+
+        ['regParentDeptOid', 'editParentDeptOid'].forEach(id => {
+            const sel = document.getElementById(id);
+            const cur = sel.value;
+            sel.innerHTML = '<option value="">— 최상위 부서 —</option>' + options;
+            if (cur) sel.value = cur;
+        });
+    }
+
+    // ── 등록 모달 열기 ────────────────────────────────────────────────────────
+    document.getElementById('modalRegister').addEventListener('show.bs.modal', () => {
+        document.getElementById('formRegister').reset();
+        updateParentSelects(allDepts);
+    });
+
+    // ── 수정 모달 열기 ────────────────────────────────────────────────────────
+    function openEditModal(deptOid) {
+        const dept = allDepts.find(d => d.deptOid === deptOid);
+        if (!dept) return;
+
+        const isDeleted = !!dept.deletedAt;
+
+        document.getElementById('editDeptOid').value       = dept.deptOid;
+        document.getElementById('editDeptCode').value      = dept.deptCode;
+        document.getElementById('editDeptName').value      = dept.deptName;
+        document.getElementById('editSortOrder').value     = dept.sortOrder;
+        document.getElementById('editUseYn').value         = dept.useYn || 'Y';
+        document.getElementById('editDeptType').value      = dept.deptType || '';
+        document.getElementById('editDeptTel').value       = dept.deptTel || '';
+        document.getElementById('editDeptFax').value       = dept.deptFax || '';
+        document.getElementById('editDeptAddress').value   = dept.deptAddress || '';
+
+        updateParentSelects(allDepts.filter(d => d.deptOid !== deptOid)); // 자기 자신 제외
+        document.getElementById('editParentDeptOid').value = dept.parentDeptOid || '';
+
+        // 삭제 여부에 따라 버튼 토글
+        document.getElementById('btnDelete').style.display  = isDeleted ? 'none' : 'inline-flex';
+        document.getElementById('btnRestore').style.display = isDeleted ? 'inline-flex' : 'none';
+        document.getElementById('btnEditSave').disabled     = isDeleted;
+
+        const modal = new bootstrap.Modal(document.getElementById('modalEdit'));
+        modal.show();
+    }
+
+    // ── 부서 등록 ─────────────────────────────────────────────────────────────
+    function submitRegister() {
+        const deptCode = document.getElementById('regDeptCode').value.trim();
+        const deptName = document.getElementById('regDeptName').value.trim();
+        if (!deptCode || !deptName) {
+            showToast('부서코드와 부서명은 필수입니다.', false);
+            return;
+        }
+
+        const form = new FormData();
+        form.append('deptCode',      document.getElementById('regDeptCode').value.trim().toUpperCase());
+        form.append('deptName',      document.getElementById('regDeptName').value.trim());
+        form.append('parentDeptOid', document.getElementById('regParentDeptOid').value);
+        form.append('sortOrder',     document.getElementById('regSortOrder').value);
+        form.append('useYn',         document.getElementById('regUseYn').value);
+        form.append('deptType',      document.getElementById('regDeptType').value.trim());
+        form.append('deptTel',       document.getElementById('regDeptTel').value.trim());
+        form.append('deptFax',       document.getElementById('regDeptFax').value.trim());
+        form.append('deptAddress',   document.getElementById('regDeptAddress').value.trim());
+        appendCsrf(form);
+
+        fetch('/org/api/depts/register', { method: 'POST', body: form })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('modalRegister'))?.hide();
+                    showToast('부서가 등록되었습니다.', true);
+                    loadTree();
+                } else {
+                    showToast(data.message || '등록에 실패했습니다.', false);
+                }
+            });
+    }
+
+    // ── 부서 수정 ─────────────────────────────────────────────────────────────
+    function submitEdit() {
+        const deptOid = document.getElementById('editDeptOid').value;
+        const deptName = document.getElementById('editDeptName').value.trim();
+        if (!deptName) {
+            showToast('부서명은 필수입니다.', false);
+            return;
+        }
+
+        const form = new FormData();
+        form.append('deptName',      deptName);
+        form.append('parentDeptOid', document.getElementById('editParentDeptOid').value);
+        form.append('sortOrder',     document.getElementById('editSortOrder').value);
+        form.append('useYn',         document.getElementById('editUseYn').value);
+        form.append('deptType',      document.getElementById('editDeptType').value.trim());
+        form.append('deptTel',       document.getElementById('editDeptTel').value.trim());
+        form.append('deptFax',       document.getElementById('editDeptFax').value.trim());
+        form.append('deptAddress',   document.getElementById('editDeptAddress').value.trim());
+        appendCsrf(form);
+
+        fetch(`/org/api/depts/${deptOid}/update`, { method: 'POST', body: form })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('modalEdit'))?.hide();
+                    showToast('부서 정보가 수정되었습니다.', true);
+                    loadTree();
+                } else {
+                    showToast(data.message || '수정에 실패했습니다.', false);
+                }
+            });
+    }
+
+    // ── 부서 삭제 ─────────────────────────────────────────────────────────────
+    function deleteDept() {
+        const deptOid = document.getElementById('editDeptOid').value;
+        const deptName = document.getElementById('editDeptName').value;
+        if (!confirm(`"${deptName}" 부서를 삭제하시겠습니까?\n(소프트 삭제되며 복원 가능합니다)`)) return;
+
+        const form = new FormData();
+        appendCsrf(form);
+        fetch(`/org/api/depts/${deptOid}/delete`, { method: 'POST', body: form })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('modalEdit'))?.hide();
+                    showToast('부서가 삭제되었습니다.', true);
+                    loadTree();
+                } else {
+                    showToast(data.message || '삭제에 실패했습니다.', false);
+                }
+            });
+    }
+
+    // ── 부서 복원 ─────────────────────────────────────────────────────────────
+    function restoreDept() {
+        const deptOid = document.getElementById('editDeptOid').value;
+        const form = new FormData();
+        appendCsrf(form);
+        fetch(`/org/api/depts/${deptOid}/restore`, { method: 'POST', body: form })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('modalEdit'))?.hide();
+                    showToast('부서가 복원되었습니다.', true);
+                    loadTree();
+                } else {
+                    showToast(data.message || '복원에 실패했습니다.', false);
+                }
+            });
+    }
+
+    // ── 상세 패널에서 바로 삭제 ──────────────────────────────────────────────
+    function deleteDeptFromDetail(deptOid, deptName) {
+        if (!confirm(`"${deptName}" 부서를 삭제하시겠습니까?\n(소프트 삭제되며 복원 가능합니다)`)) return;
+        const form = new FormData();
+        appendCsrf(form);
+        fetch(`/org/api/depts/${deptOid}/delete`, { method: 'POST', body: form })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('부서가 삭제되었습니다.', true);
+                    loadTree();
+                } else {
+                    showToast(data.message || '삭제에 실패했습니다.', false);
+                }
+            });
+    }
+
+    // ── 부서 이동 모달 ────────────────────────────────────────────────────────
+    let moveTargetOid = '';   // 이동 모달에서 선택된 부모 OID ('' = 최상위)
+    let movingDeptOid = '';   // 이동 대상 부서 OID
+
+    function openMoveModal(deptOid) {
+        const dept = allDepts.find(d => d.deptOid === deptOid);
+        if (!dept) return;
+
+        movingDeptOid = deptOid;
+        moveTargetOid = dept.parentDeptOid || '';
+
+        document.getElementById('moveDeptName').textContent = `${dept.deptName} (${dept.deptCode})`;
+        document.getElementById('moveCurrentParent').textContent = getParentName(dept.parentDeptOid);
+
+        // 이동 불가 OID 수집 (자기 자신 + 모든 하위 부서)
+        const excludeOids = collectDescendants(deptOid, allDepts);
+        excludeOids.add(deptOid);
+
+        renderMoveTree(excludeOids);
+
+        const modal = new bootstrap.Modal(document.getElementById('modalMove'));
+        modal.show();
+    }
+
+    /** deptOid의 모든 하위 OID를 재귀적으로 수집 */
+    function collectDescendants(deptOid, all) {
+        const set = new Set();
+        function collect(oid) {
+            all.filter(d => d.parentDeptOid === oid).forEach(d => {
+                set.add(d.deptOid);
+                collect(d.deptOid);
+            });
+        }
+        collect(deptOid);
+        return set;
+    }
+
+    // 이동 모달 열릴 때 최상위 버튼 스타일 초기화
+    document.getElementById('modalMove').addEventListener('show.bs.modal', () => {
+        const topBtn = document.getElementById('moveTopBtn');
+        topBtn.style.background = '';
+        topBtn.style.fontWeight = '';
+        topBtn.style.color = '';
+        // 현재 선택된 라벨 초기화
+        const dept = allDepts.find(d => d.deptOid === movingDeptOid);
+        const parentName = dept ? getParentName(dept.parentDeptOid) : '—';
+        document.getElementById('moveSelectedLabel').textContent = parentName;
+    });
+
+    function renderMoveTree(excludeOids) {
+        const container = document.getElementById('moveTreeContainer');
+        const available = allDepts.filter(d => !d.deletedAt && !excludeOids.has(d.deptOid));
+
+        const oidSet = new Set(available.map(d => d.deptOid));
+        const roots  = available.filter(d => !d.parentDeptOid || !oidSet.has(d.parentDeptOid));
+
+        let html = buildMoveTreeHtml(roots, available, 0, excludeOids);
+        container.innerHTML = html || '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">이동 가능한 부서가 없습니다.</div>';
+    }
+
+    function buildMoveTreeHtml(nodes, all, depth, excludeOids) {
+        let html = '';
+        nodes.sort((a, b) => a.sortOrder - b.sortOrder);
+        for (const node of nodes) {
+            const children = all.filter(d => d.parentDeptOid === node.deptOid && !excludeOids.has(d.deptOid));
+            const indent   = depth * 16;
+            const isSel    = moveTargetOid === node.deptOid;
+            const rowStyle = `cursor:pointer;padding:.32rem .6rem;border-radius:6px;display:flex;align-items:center;gap:.5rem;`
+                           + (isSel ? 'background:#eff6ff;font-weight:700;color:#2563eb;' : '');
+
+            html += `<div style="margin-left:${indent}px;">
+                <div id="move-node-${node.deptOid}" style="${rowStyle}" onclick="selectMoveTarget('${node.deptOid}')">
+                    <i class="fas ${children.length ? 'fa-folder' : 'fa-building'}" style="color:${isSel ? '#2563eb' : '#6b7280'};font-size:.8rem;width:14px;"></i>
+                    <span>${node.deptName}</span>
+                    <span style="font-size:.75rem;color:#9ca3af;">(${node.deptCode})</span>
+                </div>`;
+            if (children.length) html += buildMoveTreeHtml(children, all, depth + 1, excludeOids);
+            html += `</div>`;
+        }
+        return html;
+    }
+
+    function selectMoveTarget(deptOid) {
+        // 이전 선택 해제
+        const prev = document.getElementById(`move-node-${moveTargetOid}`);
+        if (prev) {
+            prev.style.background = '';
+            prev.style.fontWeight = '';
+            prev.style.color = '';
+            prev.querySelector('i').style.color = '#6b7280';
+        }
+        moveTargetOid = deptOid;
+        // 새 선택 강조
+        const cur = document.getElementById(`move-node-${deptOid}`);
+        if (cur) {
+            cur.style.background = '#eff6ff';
+            cur.style.fontWeight = '700';
+            cur.style.color = '#2563eb';
+            cur.querySelector('i').style.color = '#2563eb';
+        }
+        // 선택 표시 텍스트 갱신
+        const dept = allDepts.find(d => d.deptOid === deptOid);
+        document.getElementById('moveSelectedLabel').textContent =
+            dept ? `${dept.deptName} (${dept.deptCode})` : '—';
+    }
+
+    function selectMoveToTop() {
+        // 최상위 선택 시 기존 노드 선택 해제
+        const prev = document.getElementById(`move-node-${moveTargetOid}`);
+        if (prev) {
+            prev.style.background = '';
+            prev.style.fontWeight = '';
+            prev.style.color = '';
+            prev.querySelector('i').style.color = '#6b7280';
+        }
+        moveTargetOid = '';
+        document.getElementById('moveSelectedLabel').textContent = '최상위 (상위 부서 없음)';
+        document.getElementById('moveTopBtn').style.background = '#eff6ff';
+        document.getElementById('moveTopBtn').style.fontWeight = '700';
+        document.getElementById('moveTopBtn').style.color = '#2563eb';
+    }
+
+    function submitMove() {
+        if (movingDeptOid === moveTargetOid) {
+            showToast('현재 상위 부서와 동일합니다.', false);
+            return;
+        }
+
+        const dept = allDepts.find(d => d.deptOid === movingDeptOid);
+        if (!dept) return;
+
+        // 기존 정보 유지 + parentDeptOid만 변경
+        const form = new FormData();
+        form.append('deptName',      dept.deptName);
+        form.append('parentDeptOid', moveTargetOid);   // '' = 최상위
+        form.append('sortOrder',     dept.sortOrder);
+        form.append('useYn',         dept.useYn || 'Y');
+        form.append('deptType',      dept.deptType || '');
+        form.append('deptTel',       dept.deptTel || '');
+        form.append('deptFax',       dept.deptFax || '');
+        form.append('deptAddress',   dept.deptAddress || '');
+        appendCsrf(form);
+
+        fetch(`/org/api/depts/${movingDeptOid}/update`, { method: 'POST', body: form })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('modalMove'))?.hide();
+                    showToast('부서가 이동되었습니다.', true);
+                    loadTree();
+                } else {
+                    showToast(data.message || '이동에 실패했습니다.', false);
+                }
+            });
+    }
+
+    // ── CSRF 토큰 ─────────────────────────────────────────────────────────────
+    function appendCsrf(formData) {
+        const meta = document.querySelector('meta[name="_csrf"]');
+        const header = document.querySelector('meta[name="_csrf_header"]');
+        if (meta && header) {
+            formData.append('_csrf', meta.getAttribute('content'));
+        }
+    }
+
+    // ── 토스트 ────────────────────────────────────────────────────────────────
+    function showToast(msg, success) {
+        const wrap  = document.getElementById('toast-wrap');
+        const inner = document.getElementById('toast-inner');
+        const icon  = document.getElementById('toast-icon');
+        const text  = document.getElementById('toast-msg');
+
+        inner.style.background = success ? '#16a34a' : '#dc2626';
+        icon.className  = success ? 'fas fa-check-circle' : 'fas fa-times-circle';
+        text.textContent = msg;
+        wrap.style.display = 'block';
+        setTimeout(() => { wrap.style.display = 'none'; }, 3000);
+    }
+</script>
+
+<footer th:replace="~{include/footer :: footer}"></footer>
+</body>
+</html>
