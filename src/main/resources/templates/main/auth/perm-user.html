@@ -146,72 +146,100 @@
 </div>
 
 <!-- ══════════════════════════════════════════════════════════ -->
-<!--  부서 추가 모달                                            -->
+<!--  모달: 부서 선택                                           -->
 <!-- ══════════════════════════════════════════════════════════ -->
-<div id="deptModal" class="modal-backdrop" style="display:none;">
-    <div class="modal-box" style="width:420px;max-height:80vh;display:flex;flex-direction:column;">
-        <div class="modal-header">
-            <span class="modal-title">부서 선택</span>
-            <button type="button" class="modal-close" onclick="closeModal('deptModal')">×</button>
-        </div>
-        <div class="modal-body" style="overflow-y:auto;flex:1;">
-            <div id="deptModalTree" style="font-size:.88rem;line-height:1.7;">
-                <div style="color:#9ca3af;font-size:.83rem;">로딩 중...</div>
+<div class="modal fade" id="deptModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-building" style="margin-right:.5rem;color:#2563eb;"></i>부서 선택
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="min-height:300px;">
+                <div id="deptModalTree" style="font-size:.88rem;line-height:1.7;">
+                    <div style="color:#9ca3af;font-size:.83rem;">로딩 중...</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">닫기</button>
             </div>
         </div>
     </div>
 </div>
 
 <!-- ══════════════════════════════════════════════════════════ -->
-<!--  사용자 추가 모달 (개인 / 예외사용자 공용)                  -->
+<!--  모달: 사용자 선택 (개인 / 예외사용자 공용)                 -->
 <!-- ══════════════════════════════════════════════════════════ -->
-<div id="userModal" class="modal-backdrop" style="display:none;">
-    <div class="modal-box" style="width:460px;max-height:80vh;display:flex;flex-direction:column;">
-        <div class="modal-header">
-            <span id="userModalTitle" class="modal-title">사용자 선택</span>
-            <button type="button" class="modal-close" onclick="closeModal('userModal')">×</button>
-        </div>
-        <div class="modal-body" style="display:flex;flex-direction:column;gap:.6rem;">
-            <div style="display:flex;gap:.5rem;">
-                <input type="text" id="userSearchInput" class="modal-input" placeholder="이름 또는 아이디 검색"
-                       style="flex:1;" oninput="searchUsers()">
+<div class="modal fade" id="userModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="userModalTitle">
+                    <i class="fas fa-user" style="margin-right:.5rem;color:#16a34a;"></i>사용자 선택
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div id="userModalList" style="overflow-y:auto;max-height:360px;font-size:.88rem;">
-                <div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">검색어를 입력하세요.</div>
+            <div class="modal-body">
+                <div style="margin-bottom:.8rem;">
+                    <input type="text" id="userSearchInput" class="modal-input"
+                           placeholder="이름 또는 아이디 검색" oninput="searchUsers()">
+                </div>
+                <div id="userModalList" style="min-height:200px;font-size:.88rem;">
+                    <div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">검색어를 입력하세요.</div>
+                </div>
             </div>
-        </div>
-    </div>
-</div>
-
-<!-- ══════════════════════════════════════════════════════════ -->
-<!--  직급 추가 모달                                            -->
-<!-- ══════════════════════════════════════════════════════════ -->
-<div id="gradeModal" class="modal-backdrop" style="display:none;">
-    <div class="modal-box" style="width:420px;max-height:80vh;display:flex;flex-direction:column;">
-        <div class="modal-header">
-            <span class="modal-title">직급 선택</span>
-            <button type="button" class="modal-close" onclick="closeModal('gradeModal')">×</button>
-        </div>
-        <div class="modal-body" style="overflow-y:auto;flex:1;">
-            <div id="gradeModalList" style="font-size:.88rem;line-height:1.7;">
-                <div style="color:#9ca3af;font-size:.83rem;">로딩 중...</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">닫기</button>
             </div>
         </div>
     </div>
 </div>
 
 <!-- ══════════════════════════════════════════════════════════ -->
-<!--  직위 추가 모달                                            -->
+<!--  모달: 직급 선택                                           -->
 <!-- ══════════════════════════════════════════════════════════ -->
-<div id="positionModal" class="modal-backdrop" style="display:none;">
-    <div class="modal-box" style="width:420px;max-height:80vh;display:flex;flex-direction:column;">
-        <div class="modal-header">
-            <span class="modal-title">직위 선택</span>
-            <button type="button" class="modal-close" onclick="closeModal('positionModal')">×</button>
+<div class="modal fade" id="gradeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-layer-group" style="margin-right:.5rem;color:#7c3aed;"></i>직급 선택
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="min-height:200px;">
+                <div id="gradeModalList" style="font-size:.88rem;line-height:1.7;">
+                    <div style="color:#9ca3af;font-size:.83rem;">로딩 중...</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">닫기</button>
+            </div>
         </div>
-        <div class="modal-body" style="overflow-y:auto;flex:1;">
-            <div id="positionModalList" style="font-size:.88rem;line-height:1.7;">
-                <div style="color:#9ca3af;font-size:.83rem;">로딩 중...</div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!--  모달: 직위 선택                                           -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="positionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-medal" style="margin-right:.5rem;color:#d97706;"></i>직위 선택
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="min-height:200px;">
+                <div id="positionModalList" style="font-size:.88rem;line-height:1.7;">
+                    <div style="color:#9ca3af;font-size:.83rem;">로딩 중...</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">닫기</button>
             </div>
         </div>
     </div>
@@ -268,16 +296,24 @@
     let allPerms         = [];
     let currentTab       = 'DEPT';
     let userSearchTimer  = null;
-    let modalSubjectType = null; // 현재 모달이 처리 중인 subjectType
+    let modalSubjectType = null;
 
     // ── 탭 레이블 ─────────────────────────────────────────────────
     const TAB_LABELS = {
-        DEPT:      { label: '부서별', icon: 'fa-building',    color: '#2563eb' },
-        USER:      { label: '개인',   icon: 'fa-user',        color: '#16a34a' },
-        GRADE:     { label: '직급별', icon: 'fa-layer-group', color: '#7c3aed' },
-        POSITION:  { label: '직위별', icon: 'fa-medal',       color: '#d97706' },
-        EXCEPTION: { label: '예외사용자', icon: 'fa-ban',     color: '#dc2626' }
+        DEPT:      { label: '부서별',    icon: 'fa-building',    color: '#2563eb' },
+        USER:      { label: '개인',      icon: 'fa-user',        color: '#16a34a' },
+        GRADE:     { label: '직급별',    icon: 'fa-layer-group', color: '#7c3aed' },
+        POSITION:  { label: '직위별',    icon: 'fa-medal',       color: '#d97706' },
+        EXCEPTION: { label: '예외사용자', icon: 'fa-ban',         color: '#dc2626' }
     };
+
+    // ── Bootstrap 모달 헬퍼 ──────────────────────────────────────
+    function showModal(id) {
+        bootstrap.Modal.getOrCreateInstance(document.getElementById(id)).show();
+    }
+    function hideModal(id) {
+        bootstrap.Modal.getInstance(document.getElementById(id))?.hide();
+    }
 
     // ── 클라이언트 변경 ───────────────────────────────────────────
     function onClientChange() {
@@ -526,38 +562,33 @@
             '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">권한 선택 후 계산 버튼을 클릭하세요.</div>';
     }
 
-    // ── 모달 오픈 ─────────────────────────────────────────────────
+    // ── 모달 오픈 라우팅 ─────────────────────────────────────────
     function openAddModal() {
         switch (currentTab) {
-            case 'DEPT':      openDeptModal();     break;
+            case 'DEPT':      openDeptModal();           break;
             case 'USER':      openUserModal('USER');     break;
-            case 'GRADE':     openGradeModal();    break;
-            case 'POSITION':  openPositionModal(); break;
+            case 'GRADE':     openGradeModal();          break;
+            case 'POSITION':  openPositionModal();       break;
             case 'EXCEPTION': openUserModal('EXCEPTION'); break;
         }
     }
 
-    function closeModal(id) {
-        document.getElementById(id).style.display = 'none';
-    }
-
     // ── 부서 모달 ─────────────────────────────────────────────────
     function openDeptModal() {
-        document.getElementById('deptModal').style.display = 'flex';
         document.getElementById('deptModalTree').innerHTML =
-            '<div style="color:#9ca3af;font-size:.83rem;">로딩 중...</div>';
+            '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">로딩 중...</div>';
+        showModal('deptModal');
         fetch('/org/api/depts')
             .then(r => r.json())
-            .then(data => renderDeptModalTree(data, 0))
+            .then(data => {
+                document.getElementById('deptModalTree').innerHTML =
+                    buildDeptModalHtml(data, 0) ||
+                    '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">부서가 없습니다.</div>';
+            })
             .catch(() => {
                 document.getElementById('deptModalTree').innerHTML =
-                    '<div style="color:#ef4444;font-size:.83rem;">로드 실패</div>';
+                    '<div style="color:#ef4444;font-size:.83rem;padding:.5rem;">로드 실패</div>';
             });
-    }
-
-    function renderDeptModalTree(nodes, depth) {
-        const el = document.getElementById('deptModalTree');
-        el.innerHTML = buildDeptModalHtml(nodes, depth);
     }
 
     function buildDeptModalHtml(nodes, depth) {
@@ -565,7 +596,7 @@
         for (const node of nodes) {
             const indent = depth * 16;
             html += `<div style="margin-left:${indent}px;" class="modal-item"
-                          onclick="selectDept('${node.deptOid}', '${node.deptName}')">
+                          onclick="selectDept('${node.deptOid}')">
                 <div>
                     <i class="fas fa-building" style="color:#6b7280;font-size:.8rem;margin-right:.4rem;"></i>
                     <span style="font-size:.88rem;">${node.deptName}</span>
@@ -577,23 +608,29 @@
                 html += buildDeptModalHtml(node.children, depth + 1);
             }
         }
-        return html || '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">부서가 없습니다.</div>';
+        return html;
     }
 
-    function selectDept(deptOid, deptName) {
-        closeModal('deptModal');
+    function selectDept(deptOid) {
+        hideModal('deptModal');
         assignSubject('DEPT', deptOid);
     }
 
     // ── 사용자 모달 (개인 / 예외사용자) ──────────────────────────
     function openUserModal(type) {
         modalSubjectType = type;
-        const title = (type === 'EXCEPTION') ? '예외 사용자 선택' : '사용자 선택';
-        document.getElementById('userModalTitle').textContent = title;
+        const isException = (type === 'EXCEPTION');
+        document.getElementById('userModalTitle').innerHTML =
+            `<i class="fas fa-${isException ? 'ban' : 'user'}" style="margin-right:.5rem;color:${isException ? '#dc2626' : '#16a34a'};"></i>`+
+            `${isException ? '예외 사용자 선택' : '사용자 선택'}`;
         document.getElementById('userSearchInput').value = '';
         document.getElementById('userModalList').innerHTML =
             '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">검색어를 입력하세요.</div>';
-        document.getElementById('userModal').style.display = 'flex';
+        showModal('userModal');
+        // 모달이 열린 후 검색창에 포커스
+        document.getElementById('userModal').addEventListener('shown.bs.modal', () => {
+            document.getElementById('userSearchInput').focus();
+        }, { once: true });
     }
 
     function searchUsers() {
@@ -607,10 +644,10 @@
             }
             fetch(`/org/api/assignable-users?keyword=${encodeURIComponent(kw)}&page=0`)
                 .then(r => r.json())
-                .then(data => renderUserModalList(data.users || data.content || data))
+                .then(data => renderUserModalList(data.users || data.content || []))
                 .catch(() => {
                     document.getElementById('userModalList').innerHTML =
-                        '<div style="color:#ef4444;font-size:.83rem;">로드 실패</div>';
+                        '<div style="color:#ef4444;font-size:.83rem;padding:.5rem;">로드 실패</div>';
                 });
         }, 300);
     }
@@ -622,7 +659,7 @@
             return;
         }
         el.innerHTML = users.map(u =>
-            `<div class="modal-item" onclick="selectUser('${u.oid}', '${modalSubjectType}')">
+            `<div class="modal-item" onclick="selectUser('${u.oid}')">
                 <div>
                     <span style="font-size:.88rem;font-weight:600;">${u.name}</span>
                     <span style="font-size:.75rem;color:#6b7280;margin-left:.4rem;">(${u.userId})</span>
@@ -633,47 +670,48 @@
         ).join('');
     }
 
-    function selectUser(userOid, type) {
-        closeModal('userModal');
-        assignSubject(type, userOid);
+    function selectUser(userOid) {
+        hideModal('userModal');
+        assignSubject(modalSubjectType, userOid);
     }
 
     // ── 직급 모달 ─────────────────────────────────────────────────
     function openGradeModal() {
-        document.getElementById('gradeModal').style.display = 'flex';
         document.getElementById('gradeModalList').innerHTML =
-            '<div style="color:#9ca3af;font-size:.83rem;">로딩 중...</div>';
-        fetch('/org/api/grades?useYn=Y&includeDeleted=false&page=0&size=100')
+            '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">로딩 중...</div>';
+        showModal('gradeModal');
+        fetch('/org/api/grades?useYn=Y&includeDeleted=false&page=0')
             .then(r => r.json())
-            .then(data => renderSimpleModalList('gradeModalList', data.content || data, 'gradeOid', 'gradeName', 'gradeCode', 'GRADE'))
+            .then(data => renderPickList('gradeModalList', data.content || [], 'gradeOid', 'gradeName', 'gradeCode', 'GRADE'))
             .catch(() => {
                 document.getElementById('gradeModalList').innerHTML =
-                    '<div style="color:#ef4444;font-size:.83rem;">로드 실패</div>';
+                    '<div style="color:#ef4444;font-size:.83rem;padding:.5rem;">로드 실패</div>';
             });
     }
 
     // ── 직위 모달 ─────────────────────────────────────────────────
     function openPositionModal() {
-        document.getElementById('positionModal').style.display = 'flex';
         document.getElementById('positionModalList').innerHTML =
-            '<div style="color:#9ca3af;font-size:.83rem;">로딩 중...</div>';
-        fetch('/org/api/positions?useYn=Y&includeDeleted=false&page=0&size=100')
+            '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">로딩 중...</div>';
+        showModal('positionModal');
+        fetch('/org/api/positions?useYn=Y&includeDeleted=false&page=0')
             .then(r => r.json())
-            .then(data => renderSimpleModalList('positionModalList', data.content || data, 'positionOid', 'positionName', 'positionCode', 'POSITION'))
+            .then(data => renderPickList('positionModalList', data.content || [], 'positionOid', 'positionName', 'positionCode', 'POSITION'))
             .catch(() => {
                 document.getElementById('positionModalList').innerHTML =
-                    '<div style="color:#ef4444;font-size:.83rem;">로드 실패</div>';
+                    '<div style="color:#ef4444;font-size:.83rem;padding:.5rem;">로드 실패</div>';
             });
     }
 
-    function renderSimpleModalList(elId, items, oidField, nameField, codeField, subjectType) {
+    function renderPickList(elId, items, oidField, nameField, codeField, subjectType) {
         const el = document.getElementById(elId);
         if (!items || items.length === 0) {
             el.innerHTML = '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">등록된 항목이 없습니다.</div>';
             return;
         }
+        const modalId = subjectType === 'GRADE' ? 'gradeModal' : 'positionModal';
         el.innerHTML = items.map(item =>
-            `<div class="modal-item" onclick="selectSimple('${item[oidField]}', '${subjectType}', '${item[nameField]}')">
+            `<div class="modal-item" onclick="selectPick('${item[oidField]}', '${subjectType}', '${modalId}')">
                 <div>
                     <span style="font-size:.88rem;font-weight:600;">${item[nameField]}</span>
                     <span style="font-size:.75rem;color:#6b7280;margin-left:.4rem;">(${item[codeField]})</span>
@@ -683,9 +721,8 @@
         ).join('');
     }
 
-    function selectSimple(oid, subjectType, name) {
-        const modalId = subjectType === 'GRADE' ? 'gradeModal' : 'positionModal';
-        closeModal(modalId);
+    function selectPick(oid, subjectType, modalId) {
+        hideModal(modalId);
         assignSubject(subjectType, oid);
     }
 
@@ -706,11 +743,6 @@
         const meta = document.querySelector('meta[name="_csrf"]');
         if (meta) fd.append(meta.getAttribute('name'), meta.getAttribute('content'));
     }
-
-    // 모달 배경 클릭 닫기
-    document.querySelectorAll('.modal-backdrop').forEach(el => {
-        el.addEventListener('click', e => { if (e.target === el) el.style.display = 'none'; });
-    });
 </script>
 </body>
 </html>
