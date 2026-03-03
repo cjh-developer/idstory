@@ -32,6 +32,10 @@ DROP TABLE IF EXISTS ids_iam_user_org_map;
 DROP TABLE IF EXISTS ids_iam_user;
 DROP TABLE IF EXISTS ids_iam_dept;
 DROP TABLE IF EXISTS ids_iam_pwd_policy;
+DROP TABLE IF EXISTS ids_iam_perm_role;
+DROP TABLE IF EXISTS ids_iam_permission;
+DROP TABLE IF EXISTS ids_iam_role;
+DROP TABLE IF EXISTS ids_iam_client;
 DROP TABLE IF EXISTS users;           -- 기존 users 완전 제거
 SET FOREIGN_KEY_CHECKS = 1;
 
@@ -435,3 +439,86 @@ CREATE TABLE ids_iam_org_history (
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_unicode_ci
   COMMENT = '조직 이력 (직위/직급/직책 통합)';
+
+-- ============================================================
+--  ids_iam_client 테이블 (클라이언트/시스템/서비스)
+-- ============================================================
+CREATE TABLE ids_iam_client (
+    client_oid   CHAR(18)     NOT NULL  COMMENT '클라이언트 OID (PK)',
+    client_code  VARCHAR(50)  NOT NULL  COMMENT '클라이언트 코드 (UNIQUE)',
+    client_name  VARCHAR(100) NOT NULL  COMMENT '클라이언트명',
+    parent_oid   CHAR(18)     NULL      COMMENT '상위 클라이언트 OID (NULL=최상위)',
+    description  VARCHAR(500) NULL,
+    sort_order   INT          NOT NULL  DEFAULT 0,
+    use_yn       CHAR(1)      NOT NULL  DEFAULT 'Y',
+    created_at   DATETIME     NOT NULL  DEFAULT CURRENT_TIMESTAMP,
+    created_by   VARCHAR(50),
+    updated_at   DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_by   VARCHAR(50),
+    deleted_at   DATETIME     NULL,
+    deleted_by   VARCHAR(50),
+    CONSTRAINT pk_iam_client      PRIMARY KEY (client_oid),
+    CONSTRAINT uq_iam_client_code UNIQUE KEY  (client_code),
+    CONSTRAINT fk_iam_client_par  FOREIGN KEY (parent_oid) REFERENCES ids_iam_client(client_oid) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='클라이언트(시스템/서비스)';
+
+-- ============================================================
+--  ids_iam_role 테이블 (역할)
+-- ============================================================
+CREATE TABLE ids_iam_role (
+    role_oid     CHAR(18)     NOT NULL  COMMENT '역할 OID (PK)',
+    role_code    VARCHAR(50)  NOT NULL  COMMENT '역할 코드 (UNIQUE)',
+    role_name    VARCHAR(100) NOT NULL  COMMENT '역할명',
+    parent_oid   CHAR(18)     NULL      COMMENT '상위 역할 OID',
+    description  VARCHAR(500) NULL,
+    sort_order   INT          NOT NULL  DEFAULT 0,
+    use_yn       CHAR(1)      NOT NULL  DEFAULT 'Y',
+    created_at   DATETIME     NOT NULL  DEFAULT CURRENT_TIMESTAMP,
+    created_by   VARCHAR(50),
+    updated_at   DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_by   VARCHAR(50),
+    deleted_at   DATETIME     NULL,
+    deleted_by   VARCHAR(50),
+    CONSTRAINT pk_iam_role      PRIMARY KEY (role_oid),
+    CONSTRAINT uq_iam_role_code UNIQUE KEY  (role_code),
+    CONSTRAINT fk_iam_role_par  FOREIGN KEY (parent_oid) REFERENCES ids_iam_role(role_oid) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='역할';
+
+-- ============================================================
+--  ids_iam_permission 테이블 (권한)
+-- ============================================================
+CREATE TABLE ids_iam_permission (
+    perm_oid     CHAR(18)     NOT NULL  COMMENT '권한 OID (PK)',
+    client_oid   CHAR(18)     NOT NULL  COMMENT '클라이언트 OID (FK)',
+    perm_code    VARCHAR(100) NOT NULL  COMMENT '권한 코드 (UNIQUE)',
+    perm_name    VARCHAR(100) NOT NULL  COMMENT '권한명',
+    parent_oid   CHAR(18)     NULL      COMMENT '상위 권한 OID',
+    description  VARCHAR(500) NULL,
+    sort_order   INT          NOT NULL  DEFAULT 0,
+    use_yn       CHAR(1)      NOT NULL  DEFAULT 'Y',
+    created_at   DATETIME     NOT NULL  DEFAULT CURRENT_TIMESTAMP,
+    created_by   VARCHAR(50),
+    updated_at   DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_by   VARCHAR(50),
+    deleted_at   DATETIME     NULL,
+    deleted_by   VARCHAR(50),
+    CONSTRAINT pk_iam_perm        PRIMARY KEY (perm_oid),
+    CONSTRAINT uq_iam_perm_code   UNIQUE KEY  (perm_code),
+    CONSTRAINT fk_iam_perm_client FOREIGN KEY (client_oid) REFERENCES ids_iam_client(client_oid),
+    CONSTRAINT fk_iam_perm_parent FOREIGN KEY (parent_oid) REFERENCES ids_iam_permission(perm_oid) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='권한';
+
+-- ============================================================
+--  ids_iam_perm_role 테이블 (권한-역할 매핑)
+-- ============================================================
+CREATE TABLE ids_iam_perm_role (
+    perm_role_oid CHAR(18) NOT NULL  COMMENT '매핑 OID (PK)',
+    perm_oid      CHAR(18) NOT NULL  COMMENT '권한 OID (FK)',
+    role_oid      CHAR(18) NOT NULL  COMMENT '역할 OID (FK)',
+    created_at    DATETIME NOT NULL  DEFAULT CURRENT_TIMESTAMP,
+    created_by    VARCHAR(50),
+    CONSTRAINT pk_iam_perm_role  PRIMARY KEY (perm_role_oid),
+    CONSTRAINT uq_iam_perm_role  UNIQUE KEY  (perm_oid, role_oid),
+    CONSTRAINT fk_iam_pr_perm    FOREIGN KEY (perm_oid) REFERENCES ids_iam_permission(perm_oid) ON DELETE CASCADE,
+    CONSTRAINT fk_iam_pr_role    FOREIGN KEY (role_oid) REFERENCES ids_iam_role(role_oid) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='권한-역할 매핑';

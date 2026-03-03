@@ -6,15 +6,15 @@
 
 ## 프로젝트 개요
 
-| 항목 | 값 |
-|------|-----|
-| 프로젝트명 | IDStory 통합 로그인 시스템 |
-| 기본 패키지 | `com.idstory` |
-| 서버 포트 | 9091 |
-| DB | MySQL 8.0+ / DB명: `idstory_db` / 계정: idstory / 비밀번호: idstory01 |
-| 빌드 도구 | Gradle (gradlew 포함) |
-| Java 버전 | 17 |
-| Spring Boot | 3.2.3 |
+| 항목 | 값                                                           |
+|------|-------------------------------------------------------------|
+| 프로젝트명 | IDStory 통합 계정/권한 관리 시스템                                     |
+| 기본 패키지 | `com.idstory`                                               |
+| 서버 포트 | 9091                                                        |
+| DB | MySQL 8.0+ / DB명: `idstory` / 계정: idstory / 비밀번호: idstory01 |
+| 빌드 도구 | Gradle (gradlew 포함)                                         |
+| Java 버전 | 17                                                          |
+| Spring Boot | 3.2.3                                                       |
 
 ---
 
@@ -124,11 +124,37 @@ D:\workspace\idstory\
     │   │   ├── entity/UserAccountHistory.java
     │   │   ├── repository/LoginHistoryRepository.java
     │   │   └── repository/UserAccountHistoryRepository.java
-    │   └── policy/                         ← 정책 관리 도메인
-    │       ├── controller/PasswordPolicyController.java
-    │       ├── service/PasswordPolicyService.java
-    │       ├── entity/PasswordPolicy.java
-    │       └── repository/PasswordPolicyRepository.java
+    │   ├── policy/                         ← 정책 관리 도메인
+    │   │   ├── controller/PasswordPolicyController.java
+    │   │   ├── service/PasswordPolicyService.java
+    │   │   ├── entity/PasswordPolicy.java
+    │   │   └── repository/PasswordPolicyRepository.java
+    │   ├── client/                         ← 클라이언트(시스템/서비스) 도메인
+    │   │   ├── controller/ClientController.java
+    │   │   ├── service/ClientService.java
+    │   │   ├── entity/Client.java
+    │   │   ├── repository/ClientRepository.java
+    │   │   ├── dto/ClientCreateDto.java
+    │   │   └── dto/ClientUpdateDto.java
+    │   ├── role/                           ← 역할 도메인
+    │   │   ├── controller/RoleController.java
+    │   │   ├── service/RoleService.java
+    │   │   ├── entity/Role.java
+    │   │   ├── repository/RoleRepository.java
+    │   │   ├── dto/RoleCreateDto.java
+    │   │   └── dto/RoleUpdateDto.java
+    │   ├── permission/                     ← 권한 도메인
+    │   │   ├── controller/PermissionController.java
+    │   │   ├── service/PermissionService.java
+    │   │   ├── entity/Permission.java
+    │   │   ├── repository/PermissionRepository.java
+    │   │   ├── dto/PermissionCreateDto.java
+    │   │   └── dto/PermissionUpdateDto.java
+    │   └── permrole/                       ← 권한-역할 매핑 도메인
+    │       ├── controller/PermRoleController.java
+    │       ├── service/PermRoleService.java
+    │       ├── entity/PermRole.java
+    │       └── repository/PermRoleRepository.java
     └── resources/
         ├── application.yml
         ├── config/
@@ -166,6 +192,11 @@ D:\workspace\idstory\
                 │   ├── position.html       ← 직위 관리
                 │   ├── grade.html          ← 직급 관리
                 │   └── comp-role.html      ← 직책 관리
+                ├── auth/
+                │   ├── client.html         ← 클라이언트 관리 (2열 트리)
+                │   ├── role.html           ← 역할 관리 (2열 트리)
+                │   ├── permission.html     ← 권한 관리 (클라이언트 선택 + 2열 트리)
+                │   └── setting.html        ← 권한 설정 (3단: 클라이언트→권한→역할)
                 ├── history/
                 │   ├── login.html          ← 로그인 이력
                 │   └── user-account.html   ← 사용자 계정 이력
@@ -208,6 +239,10 @@ com.idstory.[도메인명]/
 | `ids_iam_comp_role` | 직책 관리 |
 | `ids_iam_user_org_map` | 사용자-조직 매핑 (주소속 Y / 겸직 N) |
 | `ids_iam_org_history` | 조직 이력 (직위·직급·직책 변경 로그) |
+| `ids_iam_client` | 클라이언트(시스템/서비스) — 계층형, 소프트 삭제 |
+| `ids_iam_role` | 역할 — 계층형, 소프트 삭제 |
+| `ids_iam_permission` | 권한 — client_oid FK, 계층형, 소프트 삭제 |
+| `ids_iam_perm_role` | 권한-역할 매핑 (N:N) |
 
 ### DROP 순서 (schema.sql)
 ```sql
@@ -215,7 +250,9 @@ ids_iam_login_hist → ids_iam_user_acct_hist → ids_iam_org_history
 → ids_iam_comp_role → ids_iam_grade → ids_iam_position
 → ids_iam_menu_role → ids_iam_menu → ids_iam_pwd_reset_token
 → ids_iam_admin → ids_iam_dept_head → ids_iam_user_org_map
-→ ids_iam_user → ids_iam_dept → ids_iam_pwd_policy → users
+→ ids_iam_user → ids_iam_dept → ids_iam_pwd_policy
+→ ids_iam_perm_role → ids_iam_permission → ids_iam_role → ids_iam_client
+→ users
 ```
 
 ### OID 형식

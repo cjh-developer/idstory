@@ -147,10 +147,10 @@ INSERT INTO ids_iam_menu (menu_id, parent_id, menu_name, icon, url, sort_order, 
 
 -- ── 사용자 관리 소분류 ────────────────────────────────────────────────────
 INSERT INTO ids_iam_menu (parent_id, menu_name, icon, url, sort_order, enabled) VALUES
-                                                                                    (2, '사용자 목록', NULL, '/user/list',  21, 1),
-                                                                                    (2, '사용자 등록', NULL, '/user/list',  22, 1),
-                                                                                    (2, '관리자 관리', NULL, '/admin/list', 23, 1),
-                                                                                    (2, '사용자 그룹', NULL, '#',           24, 1);
+                                                                                    (2, '사용자 목록',   NULL, '/user/list',    21, 1),
+                                                                                    (2, '관리자 관리',   NULL, '/admin/list',   22, 1),
+                                                                                    (2, '사용자 그룹',   NULL, '#',             23, 1),
+                                                                                    (2, '클라이언트 관리', NULL, '/auth/client', 24, 1);
 
 -- ── 조직 관리 소분류 ─────────────────────────────────────────────────────
 INSERT INTO ids_iam_menu (parent_id, menu_name, icon, url, sort_order, enabled) VALUES
@@ -163,9 +163,10 @@ INSERT INTO ids_iam_menu (parent_id, menu_name, icon, url, sort_order, enabled) 
 
 -- ── 권한 관리 소분류 ─────────────────────────────────────────────────────
 INSERT INTO ids_iam_menu (parent_id, menu_name, icon, url, sort_order, enabled) VALUES
-                                                                                    (4, '역할 관리', NULL, '#', 41, 1),
-                                                                                    (4, '권한 설정', NULL, '#', 42, 1),
-                                                                                    (4, '접근 제어', NULL, '#', 43, 1);
+                                                                                    (4, '역할 관리', NULL, '/auth/role',       41, 1),
+                                                                                    (4, '권한 관리', NULL, '/auth/permission', 42, 1),
+                                                                                    (4, '접근 제어', NULL, '#',                43, 1),
+                                                                                    (4, '권한 설정', NULL, '/auth/setting',    44, 1);
 
 -- ── 인증 관리 소분류 ─────────────────────────────────────────────────────
 INSERT INTO ids_iam_menu (parent_id, menu_name, icon, url, sort_order, enabled) VALUES

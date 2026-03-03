@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{include/layout :: head('권한 설정')}"></head>
+<body>
+
+<header th:replace="~{include/header :: header}"></header>
+
+<div class="app-body">
+    <aside th:replace="~{include/sidebar :: sidebar}"></aside>
+
+    <main class="app-content">
+
+        <!-- 페이지 헤더 -->
+        <div class="page-header">
+            <div>
+                <div class="breadcrumb-area">
+                    <i class="fas fa-house"></i>
+                    <i class="fas fa-chevron-right"></i>
+                    <span>권한 관리</span>
+                    <i class="fas fa-chevron-right"></i>
+                    <span>권한 설정</span>
+                </div>
+                <h2 class="page-title">권한 설정</h2>
+                <p class="page-subtitle">권한에 역할을 배정하거나 해제합니다.</p>
+            </div>
+        </div>
+
+        <!-- 토스트 알림 -->
+        <div id="toast-wrap"
+             style="position:fixed;top:1.2rem;right:1.4rem;z-index:9999;min-width:280px;display:none;">
+            <div id="toast-inner"
+                 style="padding:.75rem 1.1rem;border-radius:8px;color:#fff;
+                        font-size:.88rem;font-weight:600;display:flex;align-items:center;gap:.6rem;
+                        box-shadow:0 4px 12px rgba(0,0,0,.18);">
+                <i id="toast-icon"></i>
+                <span id="toast-msg"></span>
+            </div>
+        </div>
+
+        <!-- 클라이언트 선택 바 -->
+        <div class="card" style="margin-bottom:1rem;">
+            <div class="card-body" style="padding:.8rem 1rem;display:flex;align-items:center;gap:1rem;">
+                <label style="font-size:.88rem;font-weight:600;white-space:nowrap;">클라이언트 선택</label>
+                <select id="clientSelect" class="modal-input" style="max-width:320px;" onchange="onClientChange()">
+                    <option value="">— 클라이언트를 선택하세요 —</option>
+                    <th:block th:each="c : ${clients}">
+                        <option th:value="${c.clientOid}" th:text="${c.clientName + ' (' + c.clientCode + ')'}"></option>
+                    </th:block>
+                </select>
+            </div>
+        </div>
+
+        <!-- 3단 레이아웃 -->
+        <div style="display:flex;gap:1.2rem;align-items:flex-start;">
+
+            <!-- ── 1단: 권한 트리 ──────────────────────────────────────────── -->
+            <div class="card" style="width:300px;flex-shrink:0;min-height:600px;">
+                <div class="card-body" style="padding:1rem;">
+                    <div style="font-size:.85rem;font-weight:700;color:#374151;margin-bottom:.6rem;">
+                        <i class="fas fa-shield-halved" style="margin-right:.4rem;color:#2563eb;"></i>권한 목록
+                    </div>
+                    <div id="permTree" style="font-size:.88rem;line-height:1.6;">
+                        <div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">클라이언트를 선택하세요.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── 2단: 배정된 역할 ────────────────────────────────────────── -->
+            <div class="card" style="flex:1;min-height:600px;">
+                <div class="card-body" style="padding:1rem;">
+                    <div style="font-size:.85rem;font-weight:700;color:#374151;margin-bottom:.8rem;">
+                        <i class="fas fa-check-circle" style="margin-right:.4rem;color:#16a34a;"></i>
+                        배정된 역할
+                        <span id="assignedCount" style="font-size:.78rem;color:#6b7280;font-weight:400;margin-left:.3rem;"></span>
+                    </div>
+                    <div id="assignedRoles">
+                        <div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">권한을 선택하세요.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── 3단: 미배정 역할 ────────────────────────────────────────── -->
+            <div class="card" style="flex:1;min-height:600px;">
+                <div class="card-body" style="padding:1rem;">
+                    <div style="font-size:.85rem;font-weight:700;color:#374151;margin-bottom:.8rem;">
+                        <i class="fas fa-circle-plus" style="margin-right:.4rem;color:#2563eb;"></i>
+                        미배정 역할
+                        <span id="unassignedCount" style="font-size:.78rem;color:#6b7280;font-weight:400;margin-left:.3rem;"></span>
+                    </div>
+                    <div id="unassignedRoles">
+                        <div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">권한을 선택하세요.</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/common.js}"></script>
+<script>
+    let allPerms        = [];
+    let selectedPermOid = null;
+    let currentClientOid = null;
+
+    function onClientChange() {
+        const sel = document.getElementById('clientSelect');
+        currentClientOid = sel.value;
+        selectedPermOid  = null;
+        clearRolePanels();
+        if (!currentClientOid) {
+            document.getElementById('permTree').innerHTML = '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">클라이언트를 선택하세요.</div>';
+            return;
+        }
+        loadPermTree();
+    }
+
+    function clearRolePanels() {
+        document.getElementById('assignedRoles').innerHTML   = '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">권한을 선택하세요.</div>';
+        document.getElementById('unassignedRoles').innerHTML = '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">권한을 선택하세요.</div>';
+        document.getElementById('assignedCount').textContent   = '';
+        document.getElementById('unassignedCount').textContent = '';
+    }
+
+    function loadPermTree() {
+        fetch(`/auth/permission/tree?clientOid=${currentClientOid}`)
+            .then(r => r.json())
+            .then(data => {
+                allPerms = flattenTree(data);
+                renderPermTree(buildRoots(allPerms));
+                if (selectedPermOid) {
+                    const p = allPerms.find(p => p.permOid === selectedPermOid);
+                    if (p) loadRoles(selectedPermOid);
+                }
+            })
+            .catch(() => {
+                document.getElementById('permTree').innerHTML =
+                    '<div style="color:#ef4444;font-size:.83rem;padding:.5rem;">로드 실패</div>';
+            });
+    }
+
+    function flattenTree(nodes, result = []) {
+        nodes.forEach(n => {
+            result.push(n);
+            if (n.children && n.children.length > 0) flattenTree(n.children, result);
+        });
+        return result;
+    }
+
+    function buildRoots(flat) {
+        const map = {};
+        flat.forEach(p => { map[p.permOid] = { ...p, children: [] }; });
+        const roots = [];
+        flat.forEach(p => {
+            if (p.parentOid && map[p.parentOid]) {
+                map[p.parentOid].children.push(map[p.permOid]);
+            } else {
+                roots.push(map[p.permOid]);
+            }
+        });
+        return roots;
+    }
+
+    function renderPermTree(roots) {
+        const treeEl = document.getElementById('permTree');
+        if (!roots || roots.length === 0) {
+            treeEl.innerHTML = '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">등록된 권한이 없습니다.</div>';
+            return;
+        }
+        treeEl.innerHTML = buildPermTreeHtml(roots, 0);
+    }
+
+    function buildPermTreeHtml(nodes, depth) {
+        let html = '';
+        const sorted = [...nodes].sort((a, b) => a.sortOrder - b.sortOrder);
+        for (const node of sorted) {
+            const hasChildren = node.children && node.children.length > 0;
+            const isSelected  = node.permOid === selectedPermOid;
+            const indent      = depth * 14;
+
+            let labelStyle = `cursor:pointer;padding:.28rem .5rem;border-radius:6px;display:flex;align-items:center;gap:.5rem;`;
+            if (isSelected) labelStyle += 'background:#eff6ff;font-weight:700;color:#1d4ed8;';
+
+            const icon = hasChildren ? 'fa-shield-halved' : 'fa-key';
+
+            html += `<div style="margin-left:${indent}px;">
+                <div style="${labelStyle}" onclick="selectPerm('${node.permOid}')">
+                    <i class="fas ${icon}" style="color:#2563eb;font-size:.8rem;width:14px;"></i>
+                    <span style="font-size:.85rem;">${node.permName}</span>
+                    <span style="font-size:.73rem;color:#9ca3af;">(${node.permCode})</span>
+                </div>`;
+            if (hasChildren) html += buildPermTreeHtml(node.children, depth + 1);
+            html += '</div>';
+        }
+        return html;
+    }
+
+    function selectPerm(permOid) {
+        selectedPermOid = permOid;
+        renderPermTree(buildRoots(allPerms));
+        loadRoles(permOid);
+    }
+
+    function loadRoles(permOid) {
+        document.getElementById('assignedRoles').innerHTML   = '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">로딩 중...</div>';
+        document.getElementById('unassignedRoles').innerHTML = '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">로딩 중...</div>';
+
+        fetch(`/auth/setting/roles?permOid=${permOid}`)
+            .then(r => r.json())
+            .then(data => {
+                renderAssigned(data.assigned   || [], permOid);
+                renderUnassigned(data.unassigned || [], permOid);
+            })
+            .catch(() => {
+                document.getElementById('assignedRoles').innerHTML   = '<div style="color:#ef4444;font-size:.83rem;padding:.5rem;">로드 실패</div>';
+                document.getElementById('unassignedRoles').innerHTML = '<div style="color:#ef4444;font-size:.83rem;padding:.5rem;">로드 실패</div>';
+            });
+    }
+
+    function renderAssigned(roles, permOid) {
+        const el = document.getElementById('assignedRoles');
+        document.getElementById('assignedCount').textContent = `(${roles.length}건)`;
+        if (roles.length === 0) {
+            el.innerHTML = '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">배정된 역할이 없습니다.</div>';
+            return;
+        }
+        el.innerHTML = roles.map(r => `
+            <div style="display:flex;align-items:center;justify-content:space-between;
+                        padding:.45rem .7rem;border-radius:6px;margin-bottom:.35rem;
+                        background:#f0fdf4;border:1px solid #bbf7d0;">
+                <div>
+                    <span style="font-size:.88rem;font-weight:600;color:#166534;">${r.roleName}</span>
+                    <span style="font-size:.75rem;color:#6b7280;margin-left:.4rem;">(${r.roleCode})</span>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger" style="padding:.15rem .5rem;font-size:.75rem;"
+                        onclick="revokeRole('${permOid}', '${r.roleOid}')">
+                    <i class="fas fa-minus"></i> 해제
+                </button>
+            </div>`).join('');
+    }
+
+    function renderUnassigned(roles, permOid) {
+        const el = document.getElementById('unassignedRoles');
+        document.getElementById('unassignedCount').textContent = `(${roles.length}건)`;
+        if (roles.length === 0) {
+            el.innerHTML = '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">배정 가능한 역할이 없습니다.</div>';
+            return;
+        }
+        el.innerHTML = roles.map(r => `
+            <div style="display:flex;align-items:center;justify-content:space-between;
+                        padding:.45rem .7rem;border-radius:6px;margin-bottom:.35rem;
+                        background:#f8fafc;border:1px solid #e2e8f0;">
+                <div>
+                    <span style="font-size:.88rem;font-weight:600;color:#374151;">${r.roleName}</span>
+                    <span style="font-size:.75rem;color:#6b7280;margin-left:.4rem;">(${r.roleCode})</span>
+                    ${r.description ? `<div style="font-size:.75rem;color:#9ca3af;margin-top:.1rem;">${r.description}</div>` : ''}
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-primary" style="padding:.15rem .5rem;font-size:.75rem;"
+                        onclick="assignRole('${permOid}', '${r.roleOid}')">
+                    <i class="fas fa-plus"></i> 배정
+                </button>
+            </div>`).join('');
+    }
+
+    function assignRole(permOid, roleOid) {
+        const fd = new FormData();
+        appendCsrf(fd);
+
+        fetch(`/auth/setting/assign?permOid=${permOid}&roleOid=${roleOid}`, { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(data => {
+                showToast(data.message, data.success);
+                if (data.success) loadRoles(permOid);
+            })
+            .catch(() => showToast('배정 중 오류가 발생했습니다.', false));
+    }
+
+    function revokeRole(permOid, roleOid) {
+        if (!confirm('역할 배정을 해제하시겠습니까?')) return;
+
+        const fd = new FormData();
+        appendCsrf(fd);
+
+        fetch(`/auth/setting/revoke?permOid=${permOid}&roleOid=${roleOid}`, { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(data => {
+                showToast(data.message, data.success);
+                if (data.success) loadRoles(permOid);
+            })
+            .catch(() => showToast('해제 중 오류가 발생했습니다.', false));
+    }
+
+    function showToast(msg, success) {
+        const wrap  = document.getElementById('toast-wrap');
+        const inner = document.getElementById('toast-inner');
+        const icon  = document.getElementById('toast-icon');
+        const msgEl = document.getElementById('toast-msg');
+        inner.style.background = success ? '#16a34a' : '#dc2626';
+        icon.className = success ? 'fas fa-circle-check' : 'fas fa-circle-xmark';
+        msgEl.textContent = msg;
+        wrap.style.display = 'block';
+        setTimeout(() => { wrap.style.display = 'none'; }, 3000);
+    }
+
+    function appendCsrf(fd) {
+        const meta = document.querySelector('meta[name="_csrf"]');
+        if (meta) fd.append(meta.getAttribute('name'), meta.getAttribute('content'));
+    }
+</script>
+</body>
+</html>

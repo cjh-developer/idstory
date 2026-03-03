@@ -449,6 +449,85 @@ SET FOREIGN_KEY_CHECKS = 1;
 
 ---
 
+## 권한 관리 도메인 구조 (신규)
+
+### 플로우
+```
+클라이언트(ids_iam_client)
+  └─── 권한(ids_iam_permission, client_oid FK)
+         └─── 권한-역할 매핑(ids_iam_perm_role)
+                └─── 역할(ids_iam_role)
+```
+
+### 계층 트리 서비스 패턴
+```java
+// 플랫 리스트 → 계층 트리 변환 (ClientService, RoleService, PermissionService 공통)
+private List<Client> buildTree(List<Client> all) {
+    Map<String, Client> map = new LinkedHashMap<>();
+    all.forEach(c -> map.put(c.getClientOid(), c));
+    List<Client> roots = new ArrayList<>();
+    for (Client c : all) {
+        c.setChildren(new ArrayList<>());
+        if (c.getParentOid() == null || !map.containsKey(c.getParentOid())) roots.add(c);
+        else map.get(c.getParentOid()).getChildren().add(c);
+    }
+    return roots;
+}
+
+// 트리 → Map 직렬화 (children 재귀 포함)
+public List<Map<String, Object>> toTreeMapList(List<Client> nodes) { ... }
+```
+
+### PermRoleService — 배정/미배정 분리
+```java
+public Map<String, Object> getRolesForPerm(String permOid) {
+    Set<String> assignedOids = permRoleRepository.findByPermOid(permOid)
+        .stream().map(PermRole::getRoleOid).collect(toSet());
+    List<Role> all = roleRepository.findByDeletedAtIsNullOrderBySortOrderAsc();
+    // assigned / unassigned 로 분리하여 반환
+}
+```
+
+### 권한 관리 API URL 규칙
+```
+POST /auth/{domain}               ← 등록 (기존 register 대신 루트 POST)
+POST /auth/{domain}/{oid}/update  ← 수정
+POST /auth/{domain}/{oid}/delete  ← 소프트 삭제
+```
+> ⚠️ PUT/DELETE 미사용 — CSRF multipart 호환성 이슈로 기존 POST 패턴 통일
+
+### HTML 패턴 — 3단 레이아웃 (setting.html)
+```html
+<!-- 클라이언트 선택 바 -->
+<select onchange="onClientChange()">...</select>
+
+<!-- 3단 flex -->
+<div style="display:flex;gap:1.2rem;">
+    <!-- 1단: 권한 트리 (width:300px) -->
+    <!-- 2단: 배정된 역할 (flex:1) -->
+    <!-- 3단: 미배정 역할 (flex:1) -->
+</div>
+```
+
+### Thymeleaf Model 전달 (클라이언트 선택)
+```java
+// PermissionController, PermRoleController 공통
+@GetMapping
+public String page(Model model) {
+    model.addAttribute("clients", clientService.findAll());
+    return "main/auth/permission";
+}
+```
+```html
+<select id="clientSelect">
+    <th:block th:each="c : ${clients}">
+        <option th:value="${c.clientOid}" th:text="${c.clientName + ' (' + c.clientCode + ')'}"></option>
+    </th:block>
+</select>
+```
+
+---
+
 ## 새 도메인 구현 체크리스트
 
 1. `scripts/schema.sql` — `ids_iam_{도메인}` 테이블 DROP/CREATE

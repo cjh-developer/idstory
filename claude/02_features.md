@@ -29,6 +29,10 @@
 | 20 | 비밀번호 정책 관리 | ✅ 완료 | policy |
 | 21 | 로그인 이력 조회 | ✅ 완료 | history |
 | 22 | 사용자 계정 이력 조회 | ✅ 완료 | history |
+| 23 | 클라이언트 관리 (CRUD + 계층 트리) | ✅ 완료 | client |
+| 24 | 역할 관리 (CRUD + 계층 트리) | ✅ 완료 | role |
+| 25 | 권한 관리 (클라이언트별 CRUD + 계층 트리) | ✅ 완료 | permission |
+| 26 | 권한 설정 (권한↔역할 N:N 배정/해제) | ✅ 완료 | permrole |
 
 ---
 
@@ -38,9 +42,9 @@
 대시보드              (id=1, locked, 전체공개)   /main/dashboard
 사용자 관리           (id=2, ADMIN)
   ├── 사용자 목록       /user/list
-  ├── 사용자 등록       /user/list
   ├── 관리자 관리       /admin/list
-  └── 사용자 그룹       # (미구현)
+  ├── 사용자 그룹       # (미구현)
+  └── 클라이언트 관리   /auth/client         ← NEW
 조직 관리             (id=3, ADMIN)
   ├── 조직도 관리       /org/chart
   ├── 조직사용자        /org/users
@@ -48,7 +52,11 @@
   ├── 직급 관리         /org/grade
   ├── 직책 관리         /org/comp-role
   └── 부서장 관리       /org/dept-head
-권한 관리             (id=4, ADMIN) → 전부 # (미구현)
+권한 관리             (id=4, ADMIN)
+  ├── 역할 관리         /auth/role           ← NEW
+  ├── 권한 관리         /auth/permission     ← NEW
+  ├── 접근 제어         # (미구현)
+  └── 권한 설정         /auth/setting        ← NEW
 인증 관리             (id=5, ADMIN) → 전부 # (미구현)
 정책 관리             (id=6, ADMIN)
   └── 비밀번호 정책     /policy/password
@@ -249,11 +257,90 @@ POST /org/api/{domain}/{oid}/delete             ← 소프트 삭제
 
 ---
 
+## 기능별 상세 — 권한 관리 시스템 (신규)
+
+### 13. 클라이언트 관리
+
+**URL:** `GET /auth/client` (사용자 관리 하위 메뉴)
+
+**API (ClientController)**
+```
+GET  /auth/client/tree          ← 계층 트리 JSON
+GET  /auth/client/{oid}         ← 단건 조회
+POST /auth/client               ← 등록 (clientCode, clientName, parentOid, ...)
+POST /auth/client/{oid}/update  ← 수정
+POST /auth/client/{oid}/delete  ← 소프트 삭제
+```
+
+**특징**
+- 계층형 트리 (parentOid 자기참조), 소프트 삭제
+- 2열 레이아웃: 좌측 트리(320px) + 우측 상세/인라인 수정 패널
+- 상위 클라이언트 선택 시 자기 자신 제외 처리
+
+---
+
+### 14. 역할 관리
+
+**URL:** `GET /auth/role`
+
+**API (RoleController)**
+```
+GET  /auth/role/tree          ← 계층 트리 JSON
+GET  /auth/role/{oid}         ← 단건 조회
+POST /auth/role               ← 등록 (roleCode, roleName, parentOid, ...)
+POST /auth/role/{oid}/update  ← 수정
+POST /auth/role/{oid}/delete  ← 소프트 삭제
+```
+
+**특징**
+- 계층형 트리, 2열 레이아웃 (client.html 동일 패턴)
+- 역할 코드 자동 대문자 변환
+
+---
+
+### 15. 권한 관리
+
+**URL:** `GET /auth/permission`
+
+**API (PermissionController)**
+```
+GET  /auth/permission/tree?clientOid=   ← 클라이언트별 계층 트리
+GET  /auth/permission/{oid}             ← 단건 조회
+POST /auth/permission                   ← 등록 (clientOid, permCode, permName, ...)
+POST /auth/permission/{oid}/update      ← 수정
+POST /auth/permission/{oid}/delete      ← 소프트 삭제
+```
+
+**특징**
+- **클라이언트 선택 필수** — 드롭다운으로 클라이언트 선택 후 해당 권한 트리 로드
+- 클라이언트 목록은 서버에서 Model로 전달 (`${clients}`)
+- 등록 모달에서 clientOid hidden으로 고정
+
+---
+
+### 16. 권한 설정 (권한-역할 매핑)
+
+**URL:** `GET /auth/setting`
+
+**API (PermRoleController)**
+```
+GET  /auth/setting/roles?permOid=   ← 배정된/미배정 역할 목록 반환
+POST /auth/setting/assign           ← 역할 배정 (permOid, roleOid)
+POST /auth/setting/revoke           ← 역할 해제 (permOid, roleOid)
+```
+
+**특징**
+- **3단 레이아웃**: ① 클라이언트 선택 → ② 권한 트리 → ③ 배정/미배정 역할
+- 즉시 반영 (배정/해제 후 패널 자동 갱신)
+- `ids_iam_perm_role` 테이블 (perm_oid + role_oid UNIQUE)
+
+---
+
 ## 미구현 / 향후 작업 항목
 
 | 항목 | 비고 |
 |------|------|
-| 권한 관리 (`/auth/**`) | 역할·권한·접근제어 |
+| 접근 제어 (`/auth/**`) | 메뉴·URL 접근 정책 |
 | 인증 관리 (`/auth-policy/**`) | MFA, 세션 관리 |
 | 시스템 연계 (`/integration/**`) | SSO, API 관리 |
 | 통계/리포트 (`/stats/**`) | 사용자·접근 통계 |
