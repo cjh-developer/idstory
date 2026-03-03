@@ -32,6 +32,7 @@ DROP TABLE IF EXISTS ids_iam_user_org_map;
 DROP TABLE IF EXISTS ids_iam_user;
 DROP TABLE IF EXISTS ids_iam_dept;
 DROP TABLE IF EXISTS ids_iam_pwd_policy;
+DROP TABLE IF EXISTS ids_iam_perm_subject;
 DROP TABLE IF EXISTS ids_iam_perm_role;
 DROP TABLE IF EXISTS ids_iam_permission;
 DROP TABLE IF EXISTS ids_iam_role;
@@ -522,3 +523,19 @@ CREATE TABLE ids_iam_perm_role (
     CONSTRAINT fk_iam_pr_perm    FOREIGN KEY (perm_oid) REFERENCES ids_iam_permission(perm_oid) ON DELETE CASCADE,
     CONSTRAINT fk_iam_pr_role    FOREIGN KEY (role_oid) REFERENCES ids_iam_role(role_oid) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='권한-역할 매핑';
+
+-- ============================================================
+--  ids_iam_perm_subject 테이블 (권한 대상: 부서/개인/직급/직위/예외)
+-- ============================================================
+CREATE TABLE ids_iam_perm_subject (
+    perm_subject_oid CHAR(18)    NOT NULL COMMENT '매핑 OID (PK)',
+    perm_oid         CHAR(18)    NOT NULL COMMENT '권한 OID (FK → ids_iam_permission)',
+    subject_type     VARCHAR(20) NOT NULL COMMENT '대상 유형: DEPT|USER|GRADE|POSITION|EXCEPTION',
+    subject_oid      CHAR(18)    NOT NULL COMMENT '대상 OID (dept_oid | user oid | grade_oid | position_oid)',
+    created_at       DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by       VARCHAR(50) NULL,
+    CONSTRAINT pk_iam_perm_subject PRIMARY KEY (perm_subject_oid),
+    CONSTRAINT uq_iam_perm_subject UNIQUE KEY  (perm_oid, subject_type, subject_oid),
+    CONSTRAINT fk_ps_perm          FOREIGN KEY (perm_oid) REFERENCES ids_iam_permission(perm_oid) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='권한 대상 (부서/개인/직급/직위/예외사용자)';

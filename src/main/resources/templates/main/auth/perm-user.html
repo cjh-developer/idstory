@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{include/layout :: head('권한 사용자')}"></head>
+<body>
+
+<header th:replace="~{include/header :: header}"></header>
+
+<div class="app-body">
+    <aside th:replace="~{include/sidebar :: sidebar}"></aside>
+
+    <main class="app-content">
+
+        <!-- 페이지 헤더 -->
+        <div class="page-header">
+            <div>
+                <div class="breadcrumb-area">
+                    <i class="fas fa-house"></i>
+                    <i class="fas fa-chevron-right"></i>
+                    <span>권한 관리</span>
+                    <i class="fas fa-chevron-right"></i>
+                    <span>권한 사용자</span>
+                </div>
+                <h2 class="page-title">권한 사용자</h2>
+                <p class="page-subtitle">권한에 부서, 개인, 직급, 직위 단위로 사용자를 배정하고 예외 사용자를 관리합니다.</p>
+            </div>
+        </div>
+
+        <!-- 토스트 알림 -->
+        <div id="toast-wrap" style="position:fixed;top:1.2rem;right:1.4rem;z-index:9999;min-width:280px;display:none;">
+            <div id="toast-inner"
+                 style="padding:.75rem 1.1rem;border-radius:8px;color:#fff;
+                        font-size:.88rem;font-weight:600;display:flex;align-items:center;gap:.6rem;
+                        box-shadow:0 4px 12px rgba(0,0,0,.18);">
+                <i id="toast-icon"></i>
+                <span id="toast-msg"></span>
+            </div>
+        </div>
+
+        <!-- 클라이언트 선택 바 -->
+        <div class="card" style="margin-bottom:1rem;">
+            <div class="card-body" style="padding:.8rem 1rem;display:flex;align-items:center;gap:1rem;">
+                <label style="font-size:.88rem;font-weight:600;white-space:nowrap;">클라이언트 선택</label>
+                <select id="clientSelect" class="modal-input" style="max-width:320px;" onchange="onClientChange()">
+                    <option value="">— 클라이언트를 선택하세요 —</option>
+                    <th:block th:each="c : ${clients}">
+                        <option th:value="${c.clientOid}" th:text="${c.clientName + ' (' + c.clientCode + ')'}"></option>
+                    </th:block>
+                </select>
+            </div>
+        </div>
+
+        <!-- 2단 레이아웃 -->
+        <div style="display:flex;gap:1.2rem;align-items:flex-start;">
+
+            <!-- ── 1단: 권한 트리 ──────────────────────────────────────── -->
+            <div class="card" style="width:300px;flex-shrink:0;min-height:600px;">
+                <div class="card-body" style="padding:1rem;">
+                    <div style="font-size:.85rem;font-weight:700;color:#374151;margin-bottom:.6rem;">
+                        <i class="fas fa-shield-halved" style="margin-right:.4rem;color:#2563eb;"></i>권한 목록
+                    </div>
+                    <div id="permTree" style="font-size:.88rem;line-height:1.6;">
+                        <div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">클라이언트를 선택하세요.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── 2단: 탭 패널 ────────────────────────────────────────── -->
+            <div style="flex:1;display:flex;flex-direction:column;gap:1.2rem;">
+
+                <!-- 탭 + 대상 패널 -->
+                <div class="card" style="min-height:380px;">
+                    <div class="card-body" style="padding:1rem;">
+
+                        <!-- 탭 버튼 -->
+                        <div id="tabBar" style="display:flex;gap:.4rem;margin-bottom:1rem;flex-wrap:wrap;">
+                            <button type="button" class="tab-btn active" onclick="switchTab('DEPT')" id="tab-DEPT">
+                                <i class="fas fa-building" style="margin-right:.3rem;"></i>부서별
+                            </button>
+                            <button type="button" class="tab-btn" onclick="switchTab('USER')" id="tab-USER">
+                                <i class="fas fa-user" style="margin-right:.3rem;"></i>개인
+                            </button>
+                            <button type="button" class="tab-btn" onclick="switchTab('GRADE')" id="tab-GRADE">
+                                <i class="fas fa-layer-group" style="margin-right:.3rem;"></i>직급별
+                            </button>
+                            <button type="button" class="tab-btn" onclick="switchTab('POSITION')" id="tab-POSITION">
+                                <i class="fas fa-medal" style="margin-right:.3rem;"></i>직위별
+                            </button>
+                            <button type="button" class="tab-btn" onclick="switchTab('EXCEPTION')" id="tab-EXCEPTION"
+                                    style="margin-left:auto;">
+                                <i class="fas fa-ban" style="margin-right:.3rem;color:#dc2626;"></i>예외사용자
+                            </button>
+                        </div>
+
+                        <!-- 탭 헤더 (추가 버튼) -->
+                        <div id="tabHeader" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;">
+                            <span id="tabTitle" style="font-size:.85rem;font-weight:700;color:#374151;">
+                                권한을 선택하세요.
+                            </span>
+                            <button id="addBtn" type="button" class="btn btn-sm btn-primary"
+                                    style="display:none;" onclick="openAddModal()">
+                                <i class="fas fa-plus"></i> 추가
+                            </button>
+                        </div>
+
+                        <!-- 배정 목록 -->
+                        <div id="subjectList">
+                            <div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">권한을 선택하세요.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 유효 사용자 미리보기 -->
+                <div class="card">
+                    <div class="card-body" style="padding:1rem;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;">
+                            <div style="font-size:.85rem;font-weight:700;color:#374151;">
+                                <i class="fas fa-users" style="margin-right:.4rem;color:#7c3aed;"></i>
+                                유효 사용자 미리보기
+                                <span id="effectiveCount" style="font-size:.78rem;color:#6b7280;font-weight:400;margin-left:.3rem;"></span>
+                            </div>
+                            <button id="calcBtn" type="button" class="btn btn-sm btn-outline-secondary"
+                                    style="display:none;" onclick="calcEffectiveUsers()">
+                                <i class="fas fa-calculator"></i> 계산
+                            </button>
+                        </div>
+
+                        <!-- 직급/직위 경고 배너 -->
+                        <div id="gradePositionWarn" style="display:none;
+                             background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;
+                             padding:.6rem .8rem;margin-bottom:.8rem;
+                             font-size:.82rem;color:#9a3412;">
+                            <i class="fas fa-triangle-exclamation" style="margin-right:.4rem;"></i>
+                            직급/직위 기반 규칙이 있으나, 사용자-직급/직위 연결 정보가 없어 유효 사용자 계산에 포함되지 않습니다.
+                        </div>
+
+                        <div id="effectivePanel">
+                            <div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">권한 선택 후 계산 버튼을 클릭하세요.</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- /2단 -->
+        </div><!-- /2단 레이아웃 -->
+    </main>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!--  부서 추가 모달                                            -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div id="deptModal" class="modal-backdrop" style="display:none;">
+    <div class="modal-box" style="width:420px;max-height:80vh;display:flex;flex-direction:column;">
+        <div class="modal-header">
+            <span class="modal-title">부서 선택</span>
+            <button type="button" class="modal-close" onclick="closeModal('deptModal')">×</button>
+        </div>
+        <div class="modal-body" style="overflow-y:auto;flex:1;">
+            <div id="deptModalTree" style="font-size:.88rem;line-height:1.7;">
+                <div style="color:#9ca3af;font-size:.83rem;">로딩 중...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!--  사용자 추가 모달 (개인 / 예외사용자 공용)                  -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div id="userModal" class="modal-backdrop" style="display:none;">
+    <div class="modal-box" style="width:460px;max-height:80vh;display:flex;flex-direction:column;">
+        <div class="modal-header">
+            <span id="userModalTitle" class="modal-title">사용자 선택</span>
+            <button type="button" class="modal-close" onclick="closeModal('userModal')">×</button>
+        </div>
+        <div class="modal-body" style="display:flex;flex-direction:column;gap:.6rem;">
+            <div style="display:flex;gap:.5rem;">
+                <input type="text" id="userSearchInput" class="modal-input" placeholder="이름 또는 아이디 검색"
+                       style="flex:1;" oninput="searchUsers()">
+            </div>
+            <div id="userModalList" style="overflow-y:auto;max-height:360px;font-size:.88rem;">
+                <div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">검색어를 입력하세요.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!--  직급 추가 모달                                            -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div id="gradeModal" class="modal-backdrop" style="display:none;">
+    <div class="modal-box" style="width:420px;max-height:80vh;display:flex;flex-direction:column;">
+        <div class="modal-header">
+            <span class="modal-title">직급 선택</span>
+            <button type="button" class="modal-close" onclick="closeModal('gradeModal')">×</button>
+        </div>
+        <div class="modal-body" style="overflow-y:auto;flex:1;">
+            <div id="gradeModalList" style="font-size:.88rem;line-height:1.7;">
+                <div style="color:#9ca3af;font-size:.83rem;">로딩 중...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!--  직위 추가 모달                                            -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div id="positionModal" class="modal-backdrop" style="display:none;">
+    <div class="modal-box" style="width:420px;max-height:80vh;display:flex;flex-direction:column;">
+        <div class="modal-header">
+            <span class="modal-title">직위 선택</span>
+            <button type="button" class="modal-close" onclick="closeModal('positionModal')">×</button>
+        </div>
+        <div class="modal-body" style="overflow-y:auto;flex:1;">
+            <div id="positionModalList" style="font-size:.88rem;line-height:1.7;">
+                <div style="color:#9ca3af;font-size:.83rem;">로딩 중...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .tab-btn {
+        padding: .3rem .8rem;
+        font-size: .83rem;
+        font-weight: 600;
+        border: 1px solid #d1d5db;
+        border-radius: 20px;
+        background: #fff;
+        color: #374151;
+        cursor: pointer;
+        transition: background .15s, color .15s;
+    }
+    .tab-btn:hover { background: #f3f4f6; }
+    .tab-btn.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+    .tab-btn#tab-EXCEPTION.active { background: #dc2626; border-color: #dc2626; }
+
+    .subject-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: .45rem .7rem;
+        border-radius: 6px;
+        margin-bottom: .35rem;
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+    }
+    .subject-card.exception-card {
+        background: #fff5f5;
+        border-color: #fecaca;
+    }
+
+    .modal-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: .45rem .6rem;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background .12s;
+    }
+    .modal-item:hover { background: #eff6ff; }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/common.js}"></script>
+<script>
+    let currentClientOid = null;
+    let selectedPermOid  = null;
+    let allPerms         = [];
+    let currentTab       = 'DEPT';
+    let userSearchTimer  = null;
+    let modalSubjectType = null; // 현재 모달이 처리 중인 subjectType
+
+    // ── 탭 레이블 ─────────────────────────────────────────────────
+    const TAB_LABELS = {
+        DEPT:      { label: '부서별', icon: 'fa-building',    color: '#2563eb' },
+        USER:      { label: '개인',   icon: 'fa-user',        color: '#16a34a' },
+        GRADE:     { label: '직급별', icon: 'fa-layer-group', color: '#7c3aed' },
+        POSITION:  { label: '직위별', icon: 'fa-medal',       color: '#d97706' },
+        EXCEPTION: { label: '예외사용자', icon: 'fa-ban',     color: '#dc2626' }
+    };
+
+    // ── 클라이언트 변경 ───────────────────────────────────────────
+    function onClientChange() {
+        const sel = document.getElementById('clientSelect');
+        currentClientOid = sel.value;
+        selectedPermOid  = null;
+        clearSubjectPanel();
+        clearEffectivePanel();
+        if (!currentClientOid) {
+            document.getElementById('permTree').innerHTML =
+                '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">클라이언트를 선택하세요.</div>';
+            return;
+        }
+        loadPermTree();
+    }
+
+    // ── 권한 트리 ─────────────────────────────────────────────────
+    function loadPermTree() {
+        fetch(`/auth/permission/tree?clientOid=${currentClientOid}`)
+            .then(r => r.json())
+            .then(data => {
+                allPerms = flattenTree(data);
+                renderPermTree(buildRoots(allPerms));
+            })
+            .catch(() => {
+                document.getElementById('permTree').innerHTML =
+                    '<div style="color:#ef4444;font-size:.83rem;padding:.5rem;">로드 실패</div>';
+            });
+    }
+
+    function flattenTree(nodes, result = []) {
+        nodes.forEach(n => {
+            result.push(n);
+            if (n.children && n.children.length > 0) flattenTree(n.children, result);
+        });
+        return result;
+    }
+
+    function buildRoots(flat) {
+        const map = {};
+        flat.forEach(p => { map[p.permOid] = { ...p, children: [] }; });
+        const roots = [];
+        flat.forEach(p => {
+            if (p.parentOid && map[p.parentOid]) map[p.parentOid].children.push(map[p.permOid]);
+            else roots.push(map[p.permOid]);
+        });
+        return roots;
+    }
+
+    function renderPermTree(roots) {
+        const el = document.getElementById('permTree');
+        if (!roots || roots.length === 0) {
+            el.innerHTML = '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">등록된 권한이 없습니다.</div>';
+            return;
+        }
+        el.innerHTML = buildPermTreeHtml(roots, 0);
+    }
+
+    function buildPermTreeHtml(nodes, depth) {
+        let html = '';
+        const sorted = [...nodes].sort((a, b) => a.sortOrder - b.sortOrder);
+        for (const node of sorted) {
+            const hasChildren = node.children && node.children.length > 0;
+            const isSelected  = node.permOid === selectedPermOid;
+            const indent      = depth * 14;
+            let labelStyle = `cursor:pointer;padding:.28rem .5rem;border-radius:6px;display:flex;align-items:center;gap:.5rem;`;
+            if (isSelected) labelStyle += 'background:#eff6ff;font-weight:700;color:#1d4ed8;';
+            const icon = hasChildren ? 'fa-shield-halved' : 'fa-key';
+            html += `<div style="margin-left:${indent}px;">
+                <div style="${labelStyle}" onclick="selectPerm('${node.permOid}')">
+                    <i class="fas ${icon}" style="color:#2563eb;font-size:.8rem;width:14px;"></i>
+                    <span style="font-size:.85rem;">${node.permName}</span>
+                    <span style="font-size:.73rem;color:#9ca3af;">(${node.permCode})</span>
+                </div>`;
+            if (hasChildren) html += buildPermTreeHtml(node.children, depth + 1);
+            html += '</div>';
+        }
+        return html;
+    }
+
+    function selectPerm(permOid) {
+        selectedPermOid = permOid;
+        renderPermTree(buildRoots(allPerms));
+        clearEffectivePanel();
+        loadSubjects(currentTab);
+        document.getElementById('addBtn').style.display = '';
+        document.getElementById('calcBtn').style.display = '';
+        updateTabTitle();
+    }
+
+    // ── 탭 전환 ───────────────────────────────────────────────────
+    function switchTab(type) {
+        currentTab = type;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-' + type).classList.add('active');
+        if (selectedPermOid) {
+            loadSubjects(type);
+            updateTabTitle();
+        }
+    }
+
+    function updateTabTitle() {
+        if (!selectedPermOid) return;
+        const perm = allPerms.find(p => p.permOid === selectedPermOid);
+        const permLabel = perm ? perm.permName : '';
+        const info = TAB_LABELS[currentTab];
+        document.getElementById('tabTitle').innerHTML =
+            `<i class="fas ${info.icon}" style="color:${info.color};margin-right:.4rem;"></i>`+
+            `<span>${info.label}</span>`+
+            (permLabel ? `<span style="font-size:.78rem;color:#6b7280;font-weight:400;margin-left:.4rem;">— ${permLabel}</span>` : '');
+    }
+
+    // ── 배정 목록 로드 ─────────────────────────────────────────────
+    function loadSubjects(type) {
+        if (!selectedPermOid) return;
+        document.getElementById('subjectList').innerHTML =
+            '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">로딩 중...</div>';
+        fetch(`/auth/perm-user/subjects?permOid=${selectedPermOid}&type=${type}`)
+            .then(r => r.json())
+            .then(data => renderSubjects(data, type))
+            .catch(() => {
+                document.getElementById('subjectList').innerHTML =
+                    '<div style="color:#ef4444;font-size:.83rem;padding:.5rem;">로드 실패</div>';
+            });
+    }
+
+    function renderSubjects(items, type) {
+        const el = document.getElementById('subjectList');
+        if (!items || items.length === 0) {
+            el.innerHTML = '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">배정된 항목이 없습니다.</div>';
+            return;
+        }
+        const isException = (type === 'EXCEPTION');
+        el.innerHTML = items.map(item => {
+            const name = item.displayName || '(알 수 없음)';
+            const code = item.displayCode || '';
+            return `<div class="subject-card ${isException ? 'exception-card' : ''}">
+                <div>
+                    <span style="font-size:.88rem;font-weight:600;color:${isException ? '#991b1b' : '#374151'};">${name}</span>
+                    <span style="font-size:.75rem;color:#6b7280;margin-left:.4rem;">(${code})</span>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger"
+                        style="padding:.15rem .5rem;font-size:.75rem;"
+                        onclick="revokeSubject('${item.permSubjectOid}', '${type}')">
+                    <i class="fas fa-minus"></i> 해제
+                </button>
+            </div>`;
+        }).join('');
+    }
+
+    function clearSubjectPanel() {
+        document.getElementById('tabTitle').textContent = '권한을 선택하세요.';
+        document.getElementById('subjectList').innerHTML =
+            '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">권한을 선택하세요.</div>';
+        document.getElementById('addBtn').style.display = 'none';
+        document.getElementById('calcBtn').style.display = 'none';
+    }
+
+    // ── 배정 / 해제 ───────────────────────────────────────────────
+    function assignSubject(subjectType, subjectOid) {
+        const fd = new FormData();
+        appendCsrf(fd);
+        fetch(`/auth/perm-user/assign?permOid=${selectedPermOid}&subjectType=${subjectType}&subjectOid=${subjectOid}`,
+              { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(data => {
+                showToast(data.message, data.success);
+                if (data.success) {
+                    loadSubjects(subjectType);
+                    clearEffectivePanel();
+                }
+            })
+            .catch(() => showToast('배정 중 오류가 발생했습니다.', false));
+    }
+
+    function revokeSubject(permSubjectOid, subjectType) {
+        if (!confirm('배정을 해제하시겠습니까?')) return;
+        const fd = new FormData();
+        appendCsrf(fd);
+        fetch(`/auth/perm-user/revoke?permSubjectOid=${permSubjectOid}`, { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(data => {
+                showToast(data.message, data.success);
+                if (data.success) {
+                    loadSubjects(subjectType);
+                    clearEffectivePanel();
+                }
+            })
+            .catch(() => showToast('해제 중 오류가 발생했습니다.', false));
+    }
+
+    // ── 유효 사용자 ───────────────────────────────────────────────
+    function calcEffectiveUsers() {
+        if (!selectedPermOid) return;
+        document.getElementById('effectivePanel').innerHTML =
+            '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">계산 중...</div>';
+        document.getElementById('gradePositionWarn').style.display = 'none';
+        document.getElementById('effectiveCount').textContent = '';
+
+        fetch(`/auth/perm-user/effective?permOid=${selectedPermOid}`)
+            .then(r => r.json())
+            .then(data => renderEffectiveUsers(data))
+            .catch(() => {
+                document.getElementById('effectivePanel').innerHTML =
+                    '<div style="color:#ef4444;font-size:.83rem;padding:.5rem;">계산 실패</div>';
+            });
+    }
+
+    function renderEffectiveUsers(data) {
+        document.getElementById('effectiveCount').textContent =
+            `(유효 ${data.count}명${data.excludedCount > 0 ? ', 예외 ' + data.excludedCount + '명 제외' : ''})`;
+
+        if (data.hasGradeOrPositionRule) {
+            document.getElementById('gradePositionWarn').style.display = '';
+        }
+
+        const el = document.getElementById('effectivePanel');
+        if (!data.users || data.users.length === 0) {
+            el.innerHTML = '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">유효 사용자가 없습니다.</div>';
+            return;
+        }
+
+        el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:.85rem;">
+            <thead>
+                <tr style="background:#f9fafb;border-bottom:1px solid #e5e7eb;">
+                    <th style="padding:.4rem .6rem;text-align:left;color:#374151;font-weight:600;">아이디</th>
+                    <th style="padding:.4rem .6rem;text-align:left;color:#374151;font-weight:600;">이름</th>
+                    <th style="padding:.4rem .6rem;text-align:left;color:#374151;font-weight:600;">부서코드</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${data.users.map(u => `
+                <tr style="border-bottom:1px solid #f3f4f6;">
+                    <td style="padding:.38rem .6rem;color:#1d4ed8;font-weight:600;">${u.userId}</td>
+                    <td style="padding:.38rem .6rem;">${u.name}</td>
+                    <td style="padding:.38rem .6rem;color:#6b7280;">${u.deptCode || '—'}</td>
+                </tr>`).join('')}
+            </tbody>
+        </table>`;
+    }
+
+    function clearEffectivePanel() {
+        document.getElementById('effectiveCount').textContent = '';
+        document.getElementById('gradePositionWarn').style.display = 'none';
+        document.getElementById('effectivePanel').innerHTML =
+            '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">권한 선택 후 계산 버튼을 클릭하세요.</div>';
+    }
+
+    // ── 모달 오픈 ─────────────────────────────────────────────────
+    function openAddModal() {
+        switch (currentTab) {
+            case 'DEPT':      openDeptModal();     break;
+            case 'USER':      openUserModal('USER');     break;
+            case 'GRADE':     openGradeModal();    break;
+            case 'POSITION':  openPositionModal(); break;
+            case 'EXCEPTION': openUserModal('EXCEPTION'); break;
+        }
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).style.display = 'none';
+    }
+
+    // ── 부서 모달 ─────────────────────────────────────────────────
+    function openDeptModal() {
+        document.getElementById('deptModal').style.display = 'flex';
+        document.getElementById('deptModalTree').innerHTML =
+            '<div style="color:#9ca3af;font-size:.83rem;">로딩 중...</div>';
+        fetch('/org/api/depts')
+            .then(r => r.json())
+            .then(data => renderDeptModalTree(data, 0))
+            .catch(() => {
+                document.getElementById('deptModalTree').innerHTML =
+                    '<div style="color:#ef4444;font-size:.83rem;">로드 실패</div>';
+            });
+    }
+
+    function renderDeptModalTree(nodes, depth) {
+        const el = document.getElementById('deptModalTree');
+        el.innerHTML = buildDeptModalHtml(nodes, depth);
+    }
+
+    function buildDeptModalHtml(nodes, depth) {
+        let html = '';
+        for (const node of nodes) {
+            const indent = depth * 16;
+            html += `<div style="margin-left:${indent}px;" class="modal-item"
+                          onclick="selectDept('${node.deptOid}', '${node.deptName}')">
+                <div>
+                    <i class="fas fa-building" style="color:#6b7280;font-size:.8rem;margin-right:.4rem;"></i>
+                    <span style="font-size:.88rem;">${node.deptName}</span>
+                    <span style="font-size:.75rem;color:#9ca3af;margin-left:.3rem;">(${node.deptCode})</span>
+                </div>
+                <i class="fas fa-plus" style="color:#2563eb;font-size:.75rem;"></i>
+            </div>`;
+            if (node.children && node.children.length > 0) {
+                html += buildDeptModalHtml(node.children, depth + 1);
+            }
+        }
+        return html || '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">부서가 없습니다.</div>';
+    }
+
+    function selectDept(deptOid, deptName) {
+        closeModal('deptModal');
+        assignSubject('DEPT', deptOid);
+    }
+
+    // ── 사용자 모달 (개인 / 예외사용자) ──────────────────────────
+    function openUserModal(type) {
+        modalSubjectType = type;
+        const title = (type === 'EXCEPTION') ? '예외 사용자 선택' : '사용자 선택';
+        document.getElementById('userModalTitle').textContent = title;
+        document.getElementById('userSearchInput').value = '';
+        document.getElementById('userModalList').innerHTML =
+            '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">검색어를 입력하세요.</div>';
+        document.getElementById('userModal').style.display = 'flex';
+    }
+
+    function searchUsers() {
+        clearTimeout(userSearchTimer);
+        userSearchTimer = setTimeout(() => {
+            const kw = document.getElementById('userSearchInput').value.trim();
+            if (!kw) {
+                document.getElementById('userModalList').innerHTML =
+                    '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">검색어를 입력하세요.</div>';
+                return;
+            }
+            fetch(`/org/api/assignable-users?keyword=${encodeURIComponent(kw)}&page=0`)
+                .then(r => r.json())
+                .then(data => renderUserModalList(data.users || data.content || data))
+                .catch(() => {
+                    document.getElementById('userModalList').innerHTML =
+                        '<div style="color:#ef4444;font-size:.83rem;">로드 실패</div>';
+                });
+        }, 300);
+    }
+
+    function renderUserModalList(users) {
+        const el = document.getElementById('userModalList');
+        if (!users || users.length === 0) {
+            el.innerHTML = '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">검색 결과가 없습니다.</div>';
+            return;
+        }
+        el.innerHTML = users.map(u =>
+            `<div class="modal-item" onclick="selectUser('${u.oid}', '${modalSubjectType}')">
+                <div>
+                    <span style="font-size:.88rem;font-weight:600;">${u.name}</span>
+                    <span style="font-size:.75rem;color:#6b7280;margin-left:.4rem;">(${u.userId})</span>
+                    ${u.deptCode ? `<span style="font-size:.73rem;color:#9ca3af;margin-left:.3rem;">${u.deptCode}</span>` : ''}
+                </div>
+                <i class="fas fa-plus" style="color:#2563eb;font-size:.75rem;"></i>
+            </div>`
+        ).join('');
+    }
+
+    function selectUser(userOid, type) {
+        closeModal('userModal');
+        assignSubject(type, userOid);
+    }
+
+    // ── 직급 모달 ─────────────────────────────────────────────────
+    function openGradeModal() {
+        document.getElementById('gradeModal').style.display = 'flex';
+        document.getElementById('gradeModalList').innerHTML =
+            '<div style="color:#9ca3af;font-size:.83rem;">로딩 중...</div>';
+        fetch('/org/api/grades?useYn=Y&includeDeleted=false&page=0&size=100')
+            .then(r => r.json())
+            .then(data => renderSimpleModalList('gradeModalList', data.content || data, 'gradeOid', 'gradeName', 'gradeCode', 'GRADE'))
+            .catch(() => {
+                document.getElementById('gradeModalList').innerHTML =
+                    '<div style="color:#ef4444;font-size:.83rem;">로드 실패</div>';
+            });
+    }
+
+    // ── 직위 모달 ─────────────────────────────────────────────────
+    function openPositionModal() {
+        document.getElementById('positionModal').style.display = 'flex';
+        document.getElementById('positionModalList').innerHTML =
+            '<div style="color:#9ca3af;font-size:.83rem;">로딩 중...</div>';
+        fetch('/org/api/positions?useYn=Y&includeDeleted=false&page=0&size=100')
+            .then(r => r.json())
+            .then(data => renderSimpleModalList('positionModalList', data.content || data, 'positionOid', 'positionName', 'positionCode', 'POSITION'))
+            .catch(() => {
+                document.getElementById('positionModalList').innerHTML =
+                    '<div style="color:#ef4444;font-size:.83rem;">로드 실패</div>';
+            });
+    }
+
+    function renderSimpleModalList(elId, items, oidField, nameField, codeField, subjectType) {
+        const el = document.getElementById(elId);
+        if (!items || items.length === 0) {
+            el.innerHTML = '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">등록된 항목이 없습니다.</div>';
+            return;
+        }
+        el.innerHTML = items.map(item =>
+            `<div class="modal-item" onclick="selectSimple('${item[oidField]}', '${subjectType}', '${item[nameField]}')">
+                <div>
+                    <span style="font-size:.88rem;font-weight:600;">${item[nameField]}</span>
+                    <span style="font-size:.75rem;color:#6b7280;margin-left:.4rem;">(${item[codeField]})</span>
+                </div>
+                <i class="fas fa-plus" style="color:#2563eb;font-size:.75rem;"></i>
+            </div>`
+        ).join('');
+    }
+
+    function selectSimple(oid, subjectType, name) {
+        const modalId = subjectType === 'GRADE' ? 'gradeModal' : 'positionModal';
+        closeModal(modalId);
+        assignSubject(subjectType, oid);
+    }
+
+    // ── 공통 ──────────────────────────────────────────────────────
+    function showToast(msg, success) {
+        const wrap  = document.getElementById('toast-wrap');
+        const inner = document.getElementById('toast-inner');
+        const icon  = document.getElementById('toast-icon');
+        const msgEl = document.getElementById('toast-msg');
+        inner.style.background = success ? '#16a34a' : '#dc2626';
+        icon.className = success ? 'fas fa-circle-check' : 'fas fa-circle-xmark';
+        msgEl.textContent = msg;
+        wrap.style.display = 'block';
+        setTimeout(() => { wrap.style.display = 'none'; }, 3000);
+    }
+
+    function appendCsrf(fd) {
+        const meta = document.querySelector('meta[name="_csrf"]');
+        if (meta) fd.append(meta.getAttribute('name'), meta.getAttribute('content'));
+    }
+
+    // 모달 배경 클릭 닫기
+    document.querySelectorAll('.modal-backdrop').forEach(el => {
+        el.addEventListener('click', e => { if (e.target === el) el.style.display = 'none'; });
+    });
+</script>
+</body>
+</html>
