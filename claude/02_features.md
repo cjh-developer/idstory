@@ -33,6 +33,7 @@
 | 24 | 역할 관리 (CRUD + 계층 트리) | ✅ 완료 | role |
 | 25 | 권한 관리 (클라이언트별 CRUD + 계층 트리) | ✅ 완료 | permission |
 | 26 | 권한 설정 (권한↔역할 N:N 배정/해제) | ✅ 완료 | permrole |
+| 27 | 권한 사용자 (부서/개인/직급/직위/예외 배정 + 유효사용자 계산) | ✅ 완료 | permsubject |
 
 ---
 
@@ -53,10 +54,11 @@
   ├── 직책 관리         /org/comp-role
   └── 부서장 관리       /org/dept-head
 권한 관리             (id=4, ADMIN)
-  ├── 역할 관리         /auth/role           ← NEW
-  ├── 권한 관리         /auth/permission     ← NEW
+  ├── 역할 관리         /auth/role
+  ├── 권한 관리         /auth/permission
   ├── 접근 제어         # (미구현)
-  └── 권한 설정         /auth/setting        ← NEW
+  ├── 권한 설정         /auth/setting
+  └── 권한 사용자       /auth/perm-user
 인증 관리             (id=5, ADMIN) → 전부 # (미구현)
 정책 관리             (id=6, ADMIN)
   └── 비밀번호 정책     /policy/password
@@ -132,6 +134,8 @@ GlobalControllerAdvice.menuTree(Authentication)
 **특징**
 - 등록/수정/삭제/잠금 시 `ids_iam_user_acct_hist` 이력 자동 기록
 - 비밀번호: CustomPasswordEncoder (XML 설정 기반 SHA512/HEX)
+- 목록 각 행에 🛡 **권한 확인 버튼** → `GET /auth/perm-user/user-perms?userOid=` 호출 → 모달 표시
+  (직접 배정 / 부서 경유 / 예외 제외 구분)
 
 ---
 
@@ -172,8 +176,8 @@ POST /org/api/depts/{deptOid}/restore   ← 복원
 
 **API (OrgController)**
 ```
-GET  /org/api/dept-users?deptOid=&keyword=&page=  ← 부서별 사용자 (10건/페이지)
-GET  /org/api/assignable-users?keyword=&page=     ← 배정 가능 사용자 검색
+GET  /org/api/dept-users?deptOid=&keyword=&page=  ← 부서별 사용자 (10건/페이지, perm-user에서도 재사용)
+GET  /org/api/assignable-users?keyword=&page=     ← 배정 가능 사용자 검색 (10건/페이지)
 POST /org/api/users/{userOid}/assign              ← 사용자 부서 배정
 POST /org/api/users/{userOid}/move-dept           ← 부서 이동
 POST /org/api/users/{userOid}/unassign            ← 부서 해제
@@ -333,6 +337,54 @@ POST /auth/setting/revoke           ← 역할 해제 (permOid, roleOid)
 - **3단 레이아웃**: ① 클라이언트 선택 → ② 권한 트리 → ③ 배정/미배정 역할
 - 즉시 반영 (배정/해제 후 패널 자동 갱신)
 - `ids_iam_perm_role` 테이블 (perm_oid + role_oid UNIQUE)
+
+---
+
+### 17. 권한 사용자
+
+**URL:** `GET /auth/perm-user`
+
+**API (PermSubjectController)**
+```
+GET  /auth/perm-user/subjects?permOid=&type=   ← 배정된 대상 목록 (type: DEPT|USER|GRADE|POSITION|EXCEPTION)
+POST /auth/perm-user/assign                    ← 대상 배정 (permOid, subjectType, subjectOid)
+POST /auth/perm-user/revoke                    ← 배정 해제 (permSubjectOid)
+GET  /auth/perm-user/effective?permOid=        ← 유효 사용자 계산
+GET  /auth/perm-user/user-perms?userOid=       ← 사용자별 권한 현황
+```
+
+**화면 레이아웃**
+- 클라이언트 선택 바 → 좌측 권한 트리(300px) + 우측 패널
+- 우측 패널 상단: 5탭 (부서별 / 개인 / 직급별 / 직위별 / 예외사용자)
+- 우측 패널 하단: 유효 사용자 미리보기 (계산 버튼)
+
+**5탭 동작**
+| 탭 | subjectType | 선택 모달 | 특이사항 |
+|----|-------------|-----------|---------|
+| 부서별 | DEPT | 부서 트리 | 카드에 "사용자 토글" 버튼 → `/org/api/dept-users` 호출해 부서원 표시 |
+| 개인 | USER | 사용자 선택 (전체 페이징) | 모달 열리면 즉시 전체 목록 로드, 10건/페이지, 검색 지원 |
+| 직급별 | GRADE | 직급 목록 | `/org/api/grades?useYn=Y` |
+| 직위별 | POSITION | 직위 목록 | `/org/api/positions?useYn=Y` |
+| 예외사용자 | EXCEPTION | 사용자 선택 (전체 페이징) | 개인 탭과 동일 모달 재사용 |
+
+**유효사용자 계산 로직 (PermSubjectService.getEffectiveUsers)**
+- DEPT: 해당 부서 + 모든 하위 부서 사용자 포함 (재귀)
+- USER: 직접 포함
+- EXCEPTION: 최종 집합에서 제외
+- GRADE/POSITION: `ids_iam_user`에 직급/직위 컬럼 없어 **계산 불가** → `hasGradeOrPositionRule=true` 플래그 반환 + 경고 배너 표시
+
+**사용자별 권한 현황 (getUserPerms)**
+- 직접 배정(USER), 부서 경유(DEPT - 자신 및 상위 부서 탐색), 예외 제외(EXCEPTION) 세 구분으로 반환
+- `user/list.html` 각 행의 🛡 권한 확인 버튼으로 진입
+
+**DB 테이블:** `ids_iam_perm_subject`
+```
+perm_subject_oid CHAR(18) PK
+perm_oid         CHAR(18) FK → ids_iam_permission
+subject_type     VARCHAR(20) (DEPT|USER|GRADE|POSITION|EXCEPTION)
+subject_oid      CHAR(18)  (부서/사용자/직급/직위 OID)
+created_at, created_by
+```
 
 ---
 

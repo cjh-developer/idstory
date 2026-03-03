@@ -150,11 +150,16 @@ D:\workspace\idstory\
     │   │   ├── repository/PermissionRepository.java
     │   │   ├── dto/PermissionCreateDto.java
     │   │   └── dto/PermissionUpdateDto.java
-    │   └── permrole/                       ← 권한-역할 매핑 도메인
-    │       ├── controller/PermRoleController.java
-    │       ├── service/PermRoleService.java
-    │       ├── entity/PermRole.java
-    │       └── repository/PermRoleRepository.java
+    │   ├── permrole/                       ← 권한-역할 매핑 도메인
+    │   │   ├── controller/PermRoleController.java
+    │   │   ├── service/PermRoleService.java
+    │   │   ├── entity/PermRole.java
+    │   │   └── repository/PermRoleRepository.java
+    │   └── permsubject/                    ← 권한 대상 도메인 (부서/개인/직급/직위/예외)
+    │       ├── controller/PermSubjectController.java
+    │       ├── service/PermSubjectService.java
+    │       ├── entity/PermSubject.java
+    │       └── repository/PermSubjectRepository.java
     └── resources/
         ├── application.yml
         ├── config/
@@ -196,7 +201,8 @@ D:\workspace\idstory\
                 │   ├── client.html         ← 클라이언트 관리 (2열 트리)
                 │   ├── role.html           ← 역할 관리 (2열 트리)
                 │   ├── permission.html     ← 권한 관리 (클라이언트 선택 + 2열 트리)
-                │   └── setting.html        ← 권한 설정 (3단: 클라이언트→권한→역할)
+                │   ├── setting.html        ← 권한 설정 (3단: 클라이언트→권한→역할)
+                │   └── perm-user.html      ← 권한 사용자 (클라이언트→권한→5탭 대상 배정)
                 ├── history/
                 │   ├── login.html          ← 로그인 이력
                 │   └── user-account.html   ← 사용자 계정 이력
@@ -243,6 +249,7 @@ com.idstory.[도메인명]/
 | `ids_iam_role` | 역할 — 계층형, 소프트 삭제 |
 | `ids_iam_permission` | 권한 — client_oid FK, 계층형, 소프트 삭제 |
 | `ids_iam_perm_role` | 권한-역할 매핑 (N:N) |
+| `ids_iam_perm_subject` | 권한 대상 매핑 (subject_type: DEPT/USER/GRADE/POSITION/EXCEPTION) |
 
 ### DROP 순서 (schema.sql)
 ```sql
@@ -251,7 +258,7 @@ ids_iam_login_hist → ids_iam_user_acct_hist → ids_iam_org_history
 → ids_iam_menu_role → ids_iam_menu → ids_iam_pwd_reset_token
 → ids_iam_admin → ids_iam_dept_head → ids_iam_user_org_map
 → ids_iam_user → ids_iam_dept → ids_iam_pwd_policy
-→ ids_iam_perm_role → ids_iam_permission → ids_iam_role → ids_iam_client
+→ ids_iam_perm_subject → ids_iam_perm_role → ids_iam_permission → ids_iam_role → ids_iam_client
 → users
 ```
 

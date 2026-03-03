@@ -528,6 +528,69 @@ public String page(Model model) {
 
 ---
 
+---
+
+## 권한 사용자 도메인 (permsubject)
+
+### 엔티티 구조
+```java
+@Entity @Table(name = "ids_iam_perm_subject")
+public class PermSubject {
+    @Id @Column(name = "perm_subject_oid", length = 18)
+    private String permSubjectOid;
+
+    @Column(name = "perm_oid")      private String permOid;
+    @Column(name = "subject_type")  private String subjectType;  // DEPT|USER|GRADE|POSITION|EXCEPTION
+    @Column(name = "subject_oid")   private String subjectOid;
+    @Column(name = "created_by")    private String createdBy;
+    @Column(name = "created_at")    private LocalDateTime createdAt;
+
+    @PrePersist protected void onCreate() { createdAt = LocalDateTime.now(); }
+}
+```
+
+### PermSubjectRepository 핵심 쿼리
+```java
+List<PermSubject> findByPermOid(String permOid);
+List<PermSubject> findByPermOidAndSubjectType(String permOid, String subjectType);
+Optional<PermSubject> findByPermOidAndSubjectTypeAndSubjectOid(...);  // 중복 체크
+List<PermSubject> findBySubjectTypeAndSubjectOid(String type, String oid);         // 사용자 권한 조회
+List<PermSubject> findBySubjectTypeAndSubjectOidIn(String type, Collection<String>); // 부서 조상 매핑
+```
+
+### 유효사용자 계산 — 핵심 흐름
+```
+모든 부서 사전 로드 → childrenMap(부모→자식 OID 목록) 구성
+↓
+DEPT subject → collectDescendants(재귀) → deptCode 수집 → findByDeptCodeIn()
+USER subject → includeOids 직접 추가
+EXCEPTION subject → excludeOids 에 추가
+GRADE/POSITION → hasGradeOrPositionRule = true (계산 불가)
+↓
+includeOids.removeAll(excludeOids)  → 최종 유효 사용자
+```
+
+### 부서 카드 사용자 토글 (perm-user.html)
+- 부서별 탭의 각 subject 카드에 "사용자" 토글 버튼 표시
+- 클릭 시 `/org/api/dept-users?deptOid={deptOid}&page=0` 호출 (기존 OrgController API 재사용)
+- 응답 `users[]` + `totalElements` 를 카드 하단 패널에 렌더링
+- 패널 첫 로드 시 `dataset.loaded='true'` 저장 → 재클릭 시 재요청 없이 접기/펼치기만
+
+### 개인 추가 모달 페이징 (perm-user.html)
+- 전역 변수: `userModalPage`, `userModalTotal`, `userModalKeyword`
+- `openUserModal()` → `loadUserPage(0)` 즉시 호출 (키워드 없이 전체 목록)
+- `searchUsers()` → debounce 300ms → `userModalKeyword` 세팅 → `loadUserPage(0)`
+- `loadUserPage(page)` → `/org/api/assignable-users?page={p}&keyword={kw}` (10건/페이지)
+- `renderUserModalList()` → 목록 + 페이지 버튼 (최대 5개 번호 + 이전/다음)
+
+### 사용자별 권한 현황 (user/list.html)
+- 각 row에 🛡 권한 확인 버튼 → `openUserPermsModal(userOid, userName)`
+- `GET /auth/perm-user/user-perms?userOid=` 호출
+- 응답: `{ direct[], viaDept[], exceptions[], userId, userName, totalCount }`
+- 모달 `#modalUserPerms` 에 직접 배정 / 부서 경유 / 예외 제외 3섹션 테이블로 표시
+
+---
+
 ## 새 도메인 구현 체크리스트
 
 1. `scripts/schema.sql` — `ids_iam_{도메인}` 테이블 DROP/CREATE

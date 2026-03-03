@@ -187,8 +187,9 @@
                            placeholder="이름 또는 아이디 검색" oninput="searchUsers()">
                 </div>
                 <div id="userModalList" style="min-height:200px;font-size:.88rem;">
-                    <div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">검색어를 입력하세요.</div>
+                    <div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">로딩 중...</div>
                 </div>
+                <div id="userModalPaging" style="display:none;display:flex;justify-content:center;align-items:center;gap:.4rem;padding:.6rem 0 0;flex-wrap:wrap;"></div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">닫기</button>
@@ -291,12 +292,15 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script th:src="@{/js/common.js}"></script>
 <script>
-    let currentClientOid = null;
-    let selectedPermOid  = null;
-    let allPerms         = [];
-    let currentTab       = 'DEPT';
-    let userSearchTimer  = null;
-    let modalSubjectType = null;
+    let currentClientOid  = null;
+    let selectedPermOid   = null;
+    let allPerms          = [];
+    let currentTab        = 'DEPT';
+    let userSearchTimer   = null;
+    let modalSubjectType  = null;
+    let userModalPage     = 0;
+    let userModalTotal    = 0;
+    let userModalKeyword  = '';
 
     // ── 탭 레이블 ─────────────────────────────────────────────────
     const TAB_LABELS = {
@@ -450,18 +454,76 @@
         el.innerHTML = items.map(item => {
             const name = item.displayName || '(알 수 없음)';
             const code = item.displayCode || '';
-            return `<div class="subject-card ${isException ? 'exception-card' : ''}">
-                <div>
+            const deptToggle = (type === 'DEPT')
+                ? `<button type="button" class="btn btn-sm btn-outline-secondary"
+                           style="padding:.15rem .5rem;font-size:.75rem;margin-right:.3rem;"
+                           onclick="toggleDeptUsers('${item.subjectOid}', this)">
+                       <i class="fas fa-users"></i> 사용자
+                   </button>`
+                : '';
+            return `<div class="subject-card ${isException ? 'exception-card' : ''}" style="flex-wrap:wrap;">
+                <div style="flex:1;min-width:0;">
                     <span style="font-size:.88rem;font-weight:600;color:${isException ? '#991b1b' : '#374151'};">${name}</span>
                     <span style="font-size:.75rem;color:#6b7280;margin-left:.4rem;">(${code})</span>
                 </div>
-                <button type="button" class="btn btn-sm btn-outline-danger"
-                        style="padding:.15rem .5rem;font-size:.75rem;"
-                        onclick="revokeSubject('${item.permSubjectOid}', '${type}')">
-                    <i class="fas fa-minus"></i> 해제
-                </button>
+                <div style="display:flex;align-items:center;gap:.3rem;flex-shrink:0;">
+                    ${deptToggle}
+                    <button type="button" class="btn btn-sm btn-outline-danger"
+                            style="padding:.15rem .5rem;font-size:.75rem;"
+                            onclick="revokeSubject('${item.permSubjectOid}', '${type}')">
+                        <i class="fas fa-minus"></i> 해제
+                    </button>
+                </div>
+                ${type === 'DEPT' ? `<div class="dept-users-panel" id="dept-users-${item.subjectOid}" style="display:none;width:100%;margin-top:.5rem;"></div>` : ''}
             </div>`;
         }).join('');
+    }
+
+    // ── 부서 사용자 토글 ─────────────────────────────────────────
+    function toggleDeptUsers(deptOid, btn) {
+        const panel = document.getElementById('dept-users-' + deptOid);
+        if (!panel) return;
+        if (panel.style.display !== 'none') {
+            panel.style.display = 'none';
+            btn.querySelector('i').className = 'fas fa-users';
+            return;
+        }
+        panel.style.display = 'block';
+        btn.querySelector('i').className = 'fas fa-spinner fa-spin';
+        if (panel.dataset.loaded === 'true') {
+            btn.querySelector('i').className = 'fas fa-users-slash';
+            return;
+        }
+        fetch(`/org/api/dept-users?deptOid=${deptOid}&page=0`)
+            .then(r => r.json())
+            .then(data => {
+                btn.querySelector('i').className = 'fas fa-users-slash';
+                if (data.error) {
+                    panel.innerHTML = `<div style="color:#ef4444;font-size:.8rem;padding:.3rem;">${data.error}</div>`;
+                    return;
+                }
+                const users = data.users || [];
+                const total = data.totalElements || users.length;
+                if (users.length === 0) {
+                    panel.innerHTML = '<div style="color:#9ca3af;font-size:.8rem;padding:.3rem;">배정된 사용자가 없습니다.</div>';
+                } else {
+                    panel.innerHTML = `<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:.5rem;">
+                        <div style="font-size:.78rem;color:#0369a1;font-weight:600;margin-bottom:.3rem;">
+                            <i class="fas fa-users" style="margin-right:.3rem;"></i>부서 사용자 (${total}명) — 이 부서에 소속된 사용자에게 권한이 적용됩니다.
+                        </div>
+                        ${users.map(u => `<div style="font-size:.82rem;padding:.2rem .3rem;display:flex;gap:.5rem;">
+                            <span style="font-weight:600;color:#1d4ed8;">${u.userId}</span>
+                            <span>${u.name}</span>
+                        </div>`).join('')}
+                        ${total > users.length ? `<div style="font-size:.77rem;color:#6b7280;margin-top:.3rem;">... 외 ${total - users.length}명</div>` : ''}
+                    </div>`;
+                }
+                panel.dataset.loaded = 'true';
+            })
+            .catch(() => {
+                btn.querySelector('i').className = 'fas fa-users-slash';
+                panel.innerHTML = '<div style="color:#ef4444;font-size:.8rem;padding:.3rem;">로드 실패</div>';
+            });
     }
 
     function clearSubjectPanel() {
@@ -619,45 +681,59 @@
     // ── 사용자 모달 (개인 / 예외사용자) ──────────────────────────
     function openUserModal(type) {
         modalSubjectType = type;
+        userModalPage    = 0;
+        userModalKeyword = '';
         const isException = (type === 'EXCEPTION');
         document.getElementById('userModalTitle').innerHTML =
             `<i class="fas fa-${isException ? 'ban' : 'user'}" style="margin-right:.5rem;color:${isException ? '#dc2626' : '#16a34a'};"></i>`+
             `${isException ? '예외 사용자 선택' : '사용자 선택'}`;
         document.getElementById('userSearchInput').value = '';
-        document.getElementById('userModalList').innerHTML =
-            '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">검색어를 입력하세요.</div>';
         showModal('userModal');
-        // 모달이 열린 후 검색창에 포커스
+        // 모달 열리면 목록 즉시 로드
         document.getElementById('userModal').addEventListener('shown.bs.modal', () => {
             document.getElementById('userSearchInput').focus();
+            loadUserPage(0);
         }, { once: true });
     }
 
     function searchUsers() {
         clearTimeout(userSearchTimer);
         userSearchTimer = setTimeout(() => {
-            const kw = document.getElementById('userSearchInput').value.trim();
-            if (!kw) {
-                document.getElementById('userModalList').innerHTML =
-                    '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">검색어를 입력하세요.</div>';
-                return;
-            }
-            fetch(`/org/api/assignable-users?keyword=${encodeURIComponent(kw)}&page=0`)
-                .then(r => r.json())
-                .then(data => renderUserModalList(data.users || data.content || []))
-                .catch(() => {
-                    document.getElementById('userModalList').innerHTML =
-                        '<div style="color:#ef4444;font-size:.83rem;padding:.5rem;">로드 실패</div>';
-                });
+            userModalKeyword = document.getElementById('userSearchInput').value.trim();
+            userModalPage    = 0;
+            loadUserPage(0);
         }, 300);
     }
 
-    function renderUserModalList(users) {
-        const el = document.getElementById('userModalList');
+    function loadUserPage(page) {
+        userModalPage = page;
+        document.getElementById('userModalList').innerHTML =
+            '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">로딩 중...</div>';
+        document.getElementById('userModalPaging').style.display = 'none';
+
+        const kw = userModalKeyword ? `&keyword=${encodeURIComponent(userModalKeyword)}` : '';
+        fetch(`/org/api/assignable-users?page=${page}${kw}`)
+            .then(r => r.json())
+            .then(data => {
+                userModalTotal = data.totalPages || 1;
+                renderUserModalList(data.users || [], data.totalPages || 1, data.currentPage || 0, data.totalElements || 0);
+            })
+            .catch(() => {
+                document.getElementById('userModalList').innerHTML =
+                    '<div style="color:#ef4444;font-size:.83rem;padding:.5rem;">로드 실패</div>';
+            });
+    }
+
+    function renderUserModalList(users, totalPages, currentPage, totalElements) {
+        const el     = document.getElementById('userModalList');
+        const pagEl  = document.getElementById('userModalPaging');
+
         if (!users || users.length === 0) {
             el.innerHTML = '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">검색 결과가 없습니다.</div>';
+            pagEl.style.display = 'none';
             return;
         }
+
         el.innerHTML = users.map(u =>
             `<div class="modal-item" onclick="selectUser('${u.oid}')">
                 <div>
@@ -668,6 +744,35 @@
                 <i class="fas fa-plus" style="color:#2563eb;font-size:.75rem;"></i>
             </div>`
         ).join('');
+
+        // 페이지네이션
+        if (totalPages <= 1) {
+            pagEl.style.display = 'none';
+            return;
+        }
+        pagEl.style.display = 'flex';
+        const btnStyle = (disabled) =>
+            `style="padding:.25rem .6rem;font-size:.78rem;border:1px solid #d1d5db;border-radius:4px;
+                    background:${disabled ? '#f3f4f6' : '#fff'};color:${disabled ? '#9ca3af' : '#374151'};
+                    cursor:${disabled ? 'default' : 'pointer'};"`;
+        let html = `<button ${btnStyle(currentPage === 0)} ${currentPage > 0 ? `onclick="loadUserPage(${currentPage-1})"` : 'disabled'}>
+                        <i class="fas fa-chevron-left"></i>
+                    </button>`;
+        // 최대 5개 페이지 번호 표시
+        const start = Math.max(0, currentPage - 2);
+        const end   = Math.min(totalPages - 1, start + 4);
+        for (let i = start; i <= end; i++) {
+            const active = (i === currentPage);
+            html += `<button onclick="loadUserPage(${i})"
+                         style="padding:.25rem .55rem;font-size:.78rem;border:1px solid ${active ? '#2563eb' : '#d1d5db'};
+                                border-radius:4px;background:${active ? '#2563eb' : '#fff'};
+                                color:${active ? '#fff' : '#374151'};cursor:pointer;">${i+1}</button>`;
+        }
+        html += `<button ${btnStyle(currentPage >= totalPages-1)} ${currentPage < totalPages-1 ? `onclick="loadUserPage(${currentPage+1})"` : 'disabled'}>
+                     <i class="fas fa-chevron-right"></i>
+                 </button>`;
+        html += `<span style="font-size:.75rem;color:#9ca3af;margin-left:.3rem;">총 ${totalElements}명</span>`;
+        pagEl.innerHTML = html;
     }
 
     function selectUser(userOid) {
