@@ -36,31 +36,31 @@
         </div>
 
         <!-- 2열 레이아웃 -->
-        <div style="display:flex;gap:1.2rem;align-items:flex-start;">
+        <div style="display:flex;gap:1.2rem;align-items:stretch;height:calc(100vh - 260px);">
 
             <!-- ── 왼쪽: 부서 트리 ──────────────────────────────────── -->
-            <div class="card" style="width:280px;flex-shrink:0;min-height:540px;">
-                <div class="card-body" style="padding:1rem;">
-                    <div style="font-size:.85rem;font-weight:700;color:#374151;margin-bottom:.6rem;">
+            <div class="card" style="width:280px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden;">
+                <div class="card-body" style="padding:1rem;display:flex;flex-direction:column;flex:1;min-height:0;">
+                    <div style="font-size:.85rem;font-weight:700;color:#374151;margin-bottom:.6rem;flex-shrink:0;">
                         <i class="fas fa-sitemap" style="margin-right:.4rem;color:#2563eb;"></i>부서 트리
                     </div>
                     <!-- 검색 -->
-                    <div style="position:relative;margin-bottom:.7rem;">
+                    <div style="position:relative;margin-bottom:.7rem;flex-shrink:0;">
                         <i class="fas fa-search" style="position:absolute;left:.6rem;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:.8rem;pointer-events:none;"></i>
                         <input type="text" id="treeSearch" placeholder="부서 검색"
                                oninput="filterDeptTree()"
                                style="width:100%;padding:.38rem .7rem .38rem 1.9rem;font-size:.83rem;
                                       border:1px solid #d1d5db;border-radius:6px;outline:none;box-sizing:border-box;">
                     </div>
-                    <div id="deptTree" style="font-size:.88rem;line-height:1.7;">
+                    <div id="deptTree" style="font-size:.88rem;line-height:1.7;overflow-y:auto;flex:1;min-height:0;padding-right:.2rem;">
                         <div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">로딩 중...</div>
                     </div>
                 </div>
             </div>
 
             <!-- ── 오른쪽: 부서장 패널 ──────────────────────────────── -->
-            <div class="card" style="flex:1;min-height:540px;">
-                <div class="card-body" id="headPanel" style="padding:1.5rem;color:#9ca3af;font-size:.88rem;">
+            <div class="card" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+                <div class="card-body" id="headPanel" style="padding:1.5rem;color:#9ca3af;font-size:.88rem;overflow-y:auto;flex:1;min-height:0;">
                     <div style="text-align:center;padding:3rem 0;">
                         <i class="fas fa-hand-pointer" style="font-size:2rem;margin-bottom:.8rem;display:block;"></i>
                         왼쪽 트리에서 부서를 선택하면 부서장 정보가 표시됩니다.
@@ -149,6 +149,7 @@
     let headUserOid     = '';   // 모달에서 선택된 사용자 OID
     let headCurrentPage = 0;
     let headCurrentKw   = '';
+    const collapsedSet  = new Set(); // 접힌 노드 OID 집합
 
     // ── 초기화 ────────────────────────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', loadDeptTree);
@@ -216,12 +217,15 @@
         let html = '';
         nodes.sort((a, b) => a.sortOrder - b.sortOrder);
         for (const node of nodes) {
-            const children   = all.filter(d => d.parentDeptOid === node.deptOid);
-            const indent     = depth * 14;
-            const isSelected = selectedDept && selectedDept.deptOid === node.deptOid;
-            const isMatched  = matchedOids.size > 0 && matchedOids.has(node.deptOid);
+            const children    = all.filter(d => d.parentDeptOid === node.deptOid);
+            const hasChildren = children.length > 0;
+            const indent      = depth * 14;
+            const isSelected  = selectedDept && selectedDept.deptOid === node.deptOid;
+            const isMatched   = matchedOids.size > 0 && matchedOids.has(node.deptOid);
+            // 검색 중에는 접힌 상태 무시
+            const isCollapsed = !deptSearchKw && collapsedSet.has(node.deptOid);
 
-            let style = `cursor:pointer;padding:.28rem .5rem;border-radius:6px;display:flex;align-items:center;gap:.5rem;`;
+            let style = `cursor:pointer;padding:.28rem .5rem;border-radius:6px;display:flex;align-items:center;gap:.4rem;`;
             if (isSelected) style += 'background:#eff6ff;font-weight:700;color:#2563eb;';
             if (isMatched && !isSelected) style += 'border-left:3px solid #2563eb;padding-left:.35rem;';
 
@@ -230,17 +234,38 @@
                     m => `<mark style="background:#fef08a;padding:0;border-radius:2px;">${m}</mark>`)
                 : node.deptName;
 
+            const toggleBtn = hasChildren
+                ? `<i class="fas fa-chevron-${isCollapsed ? 'right' : 'down'}"
+                      onclick="event.stopPropagation();toggleNode('${node.deptOid}')"
+                      style="font-size:.62rem;color:#6b7280;width:10px;flex-shrink:0;cursor:pointer;"></i>`
+                : `<span style="display:inline-block;width:10px;flex-shrink:0;"></span>`;
+
+            const icon = hasChildren ? (isCollapsed ? 'fa-folder' : 'fa-folder-open') : 'fa-building';
+
             html += `<div style="margin-left:${indent}px;">
                 <div style="${style}" onclick="selectDept('${node.deptOid}','${node.deptName.replace(/'/g,"\\'")}')">
-                    <i class="fas ${children.length ? 'fa-folder' : 'fa-building'}"
-                       style="color:${isSelected?'#2563eb':'#6b7280'};font-size:.8rem;width:14px;"></i>
+                    ${toggleBtn}
+                    <i class="fas ${icon}" style="color:${isSelected?'#2563eb':'#6b7280'};font-size:.8rem;width:14px;flex-shrink:0;"></i>
                     <span>${nameHtml}</span>
                     <span style="font-size:.74rem;color:#9ca3af;">(${node.deptCode})</span>
                 </div>`;
-            if (children.length) html += buildDeptTree(children, all, depth + 1, matchedOids);
+            if (hasChildren) {
+                html += `<div id="children_${node.deptOid}" style="${isCollapsed ? 'display:none;' : ''}">`;
+                html += buildDeptTree(children, all, depth + 1, matchedOids);
+                html += `</div>`;
+            }
             html += `</div>`;
         }
         return html;
+    }
+
+    function toggleNode(deptOid) {
+        if (collapsedSet.has(deptOid)) {
+            collapsedSet.delete(deptOid);
+        } else {
+            collapsedSet.add(deptOid);
+        }
+        renderDeptTree();
     }
 
     // ── 부서 선택 → 부서장 패널 로드 ─────────────────────────────────────────
@@ -292,6 +317,26 @@
                     </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;font-size:.875rem;">
                         <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:.8rem 1rem;">
+                            <div style="color:#9ca3af;font-size:.75rem;margin-bottom:.2rem;">이메일</div>
+                            <div style="font-weight:600;color:#374151;font-size:.82rem;">${data.email || '—'}</div>
+                        </div>
+                        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:.8rem 1rem;">
+                            <div style="color:#9ca3af;font-size:.75rem;margin-bottom:.2rem;">휴대번호</div>
+                            <div style="font-weight:600;color:#374151;font-size:.82rem;">${data.phone || '—'}</div>
+                        </div>
+                        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:.8rem 1rem;">
+                            <div style="color:#9ca3af;font-size:.75rem;margin-bottom:.2rem;">담당 업무</div>
+                            <div style="font-weight:600;color:#374151;font-size:.82rem;">${data.jobDuty || '—'}</div>
+                        </div>
+                        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:.8rem 1rem;">
+                            <div style="color:#9ca3af;font-size:.75rem;margin-bottom:.2rem;">계정 상태</div>
+                            <div style="font-weight:600;color:#374151;font-size:.82rem;">${data.status || '—'}${data.lockYn === 'Y' ? ' <span style="font-size:.7rem;background:#ffedd5;color:#c2410c;padding:1px 5px;border-radius:4px;">잠금</span>' : ''}</div>
+                        </div>
+                        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:.8rem 1rem;">
+                            <div style="color:#9ca3af;font-size:.75rem;margin-bottom:.2rem;">사용여부</div>
+                            <div style="font-weight:600;color:#374151;font-size:.82rem;">${data.useYn === 'Y' ? '사용' : '미사용'}</div>
+                        </div>
+                        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:.8rem 1rem;">
                             <div style="color:#9ca3af;font-size:.75rem;margin-bottom:.2rem;">사용자 OID</div>
                             <div style="font-weight:600;color:#374151;font-size:.82rem;">${data.userOid || '—'}</div>
                         </div>
@@ -302,6 +347,14 @@
                         <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:.8rem 1rem;">
                             <div style="color:#9ca3af;font-size:.75rem;margin-bottom:.2rem;">등록자</div>
                             <div style="font-weight:600;color:#374151;font-size:.82rem;">${data.createdBy || '—'}</div>
+                        </div>
+                        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:.8rem 1rem;">
+                            <div style="color:#9ca3af;font-size:.75rem;margin-bottom:.2rem;">수정일시</div>
+                            <div style="font-weight:600;color:#374151;font-size:.82rem;">${data.updatedAt ? data.updatedAt.replace('T',' ').substring(0,19) : '—'}</div>
+                        </div>
+                        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:.8rem 1rem;">
+                            <div style="color:#9ca3af;font-size:.75rem;margin-bottom:.2rem;">수정자</div>
+                            <div style="font-weight:600;color:#374151;font-size:.82rem;">${data.updatedBy || '—'}</div>
                         </div>
                     </div>
                 </div>`;

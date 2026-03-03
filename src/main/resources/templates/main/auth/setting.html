@@ -105,6 +105,15 @@
     let selectedPermOid = null;
     let currentClientOid = null;
 
+    // 페이지 로드 시 첫 번째 클라이언트 자동 선택
+    document.addEventListener('DOMContentLoaded', () => {
+        const sel = document.getElementById('clientSelect');
+        if (sel && sel.options.length > 1) {
+            sel.selectedIndex = 1;
+            onClientChange();
+        }
+    });
+
     function onClientChange() {
         const sel = document.getElementById('clientSelect');
         currentClientOid = sel.value;

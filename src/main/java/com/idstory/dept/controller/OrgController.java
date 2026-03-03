@@ -228,14 +228,27 @@ public class OrgController {
     public ResponseEntity<Map<String, Object>> getDeptHead(@RequestParam String deptOid) {
         Map<String, Object> result = new LinkedHashMap<>();
         deptHeadService.findByDeptOid(deptOid).ifPresent(h -> {
-            result.put("headOid",  h.getHeadOid());
-            result.put("deptOid",  h.getDeptOid());
-            result.put("deptName", h.getDeptName());
-            result.put("userOid",  h.getUserOid());
-            result.put("userId",   h.getUserId());
-            result.put("userName", h.getUserName());
+            result.put("headOid",   h.getHeadOid());
+            result.put("deptOid",   h.getDeptOid());
+            result.put("deptName",  h.getDeptName());
+            result.put("userOid",   h.getUserOid());
+            result.put("userId",    h.getUserId());
+            result.put("userName",  h.getUserName());
             result.put("createdAt", h.getCreatedAt() != null ? h.getCreatedAt().toString() : null);
             result.put("createdBy", h.getCreatedBy());
+            result.put("updatedAt", h.getUpdatedAt() != null ? h.getUpdatedAt().toString() : null);
+            result.put("updatedBy", h.getUpdatedBy());
+            // 추가 사용자 정보 (SysUser 조회)
+            try {
+                SysUser user = sysUserService.getUserByOid(h.getUserOid());
+                result.put("email",    user.getEmail());
+                result.put("phone",    user.getPhone());
+                result.put("deptCode", user.getDeptCode());
+                result.put("jobDuty",  user.getJobDuty());
+                result.put("useYn",    user.getUseYn());
+                result.put("status",   user.getStatus());
+                result.put("lockYn",   user.getLockYn());
+            } catch (Exception ignored) {}
         });
         return ResponseEntity.ok(result);
     }

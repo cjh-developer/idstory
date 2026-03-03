@@ -125,6 +125,19 @@ public class MenuService {
      * @param roles  새로 설정할 역할 집합 (빈 Set = 전체 공개)
      */
     @Transactional
+    public void updateMenu(Long menuId, String menuName, String icon, String url) {
+        Menu menu = menuRepository.findById(menuId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 메뉴: " + menuId));
+        if (menu.isLocked()) {
+            throw new IllegalStateException("잠금된 메뉴는 수정할 수 없습니다.");
+        }
+        menu.setMenuName(menuName.trim());
+        menu.setIcon(icon == null || icon.isBlank() ? null : icon.trim());
+        menu.setUrl(url == null || url.isBlank() ? null : url.trim());
+        log.info("[MenuService] 메뉴 수정 - id: {}, name: {}", menuId, menuName);
+    }
+
+    @Transactional
     public void updateRoles(Long menuId, Set<String> roles) {
         Menu menu = menuRepository.findById(menuId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 메뉴: " + menuId));

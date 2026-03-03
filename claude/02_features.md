@@ -19,8 +19,8 @@
 | 10 | 에러 페이지 (404, 500) | ✅ 완료 | templates/error |
 | 11 | 사용자 관리 (목록/등록/수정/삭제) | ✅ 완료 | user |
 | 12 | 관리자 계정 관리 | ✅ 완료 | admin |
-| 13 | 조직도 관리 (부서 CRUD) | ✅ 완료 | dept |
-| 14 | 조직사용자 (부서별 배정 + 겸직) | ✅ 완료 | dept, userorgmap |
+| 13 | 부서 관리 (부서 CRUD) | ✅ 완료 | dept |
+| 14 | 부서 사용자 (부서별 배정 + 겸직) | ✅ 완료 | dept, userorgmap |
 | 15 | 겸직 중복 방지 | ✅ 완료 | userorgmap |
 | 16 | 직위 관리 (CRUD + 이력) | ✅ 완료 | position, orghistory |
 | 17 | 직급 관리 (CRUD + 이력) | ✅ 완료 | grade, orghistory |
@@ -47,8 +47,8 @@
   ├── 사용자 그룹       # (미구현)
   └── 클라이언트 관리   /auth/client         ← NEW
 조직 관리             (id=3, ADMIN)
-  ├── 조직도 관리       /org/chart
-  ├── 조직사용자        /org/users
+  ├── 부서 관리         /org/chart
+  ├── 부서 사용자       /org/users
   ├── 직위 관리         /org/position
   ├── 직급 관리         /org/grade
   ├── 직책 관리         /org/comp-role
@@ -152,7 +152,7 @@ GlobalControllerAdvice.menuTree(Authentication)
 
 ---
 
-### 6. 조직도 관리
+### 6. 부서 관리
 
 **URL:** `GET /org/chart`
 
@@ -166,11 +166,11 @@ POST /org/api/depts/{deptOid}/delete    ← 소프트 삭제
 POST /org/api/depts/{deptOid}/restore   ← 복원
 ```
 
-**특징:** 계층형 트리, 소프트 삭제, "삭제된 부서 포함" 토글
+**특징:** 계층형 트리, 소프트 삭제, "삭제된 부서 포함" 토글, 트리 노드 접기/펼치기, 좌우 등높이 스크롤 레이아웃
 
 ---
 
-### 7. 조직사용자 (주소속 + 겸직)
+### 7. 부서 사용자 (주소속 + 겸직)
 
 **URL:** `GET /org/users`
 

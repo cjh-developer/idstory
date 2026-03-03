@@ -49,6 +49,9 @@ public class UserCreateDto {
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate validEndDate;
 
+    /** 담당 업무 */
+    private String jobDuty;
+
     /** 겸직 가능 여부 Y|N */
     private String concurrentYn = "N";
 

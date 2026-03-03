@@ -73,6 +73,7 @@ public class SysUserService {
                 .concurrentYn(dto.getConcurrentYn() != null ? dto.getConcurrentYn() : "N")
                 .validStartDate(dto.getValidStartDate())
                 .validEndDate(dto.getValidEndDate())
+                .jobDuty(blankToNull(dto.getJobDuty()))
                 .createdBy(performedBy)
                 .build();
 
@@ -137,6 +138,7 @@ public class SysUserService {
         user.setConcurrentYn(dto.getConcurrentYn() != null ? dto.getConcurrentYn() : "N");
         user.setValidStartDate(dto.getValidStartDate());
         user.setValidEndDate(dto.getValidEndDate());
+        user.setJobDuty(blankToNull(dto.getJobDuty()));
         user.setUpdatedBy(performedBy);
 
         if (dto.getNewPassword() != null && !dto.getNewPassword().isBlank()) {

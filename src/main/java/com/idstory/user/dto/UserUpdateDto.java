@@ -53,6 +53,9 @@ public class UserUpdateDto {
     /** 새 비밀번호 (빈 문자열 또는 null → 변경 안 함) */
     private String newPassword;
 
+    /** 담당 업무 */
+    private String jobDuty;
+
     /** 겸직 가능 여부 Y|N */
     private String concurrentYn;
 }

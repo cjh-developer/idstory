@@ -131,6 +131,26 @@ public class SystemMenuController {
 
     // ── 역할 수정 ────────────────────────────────────────────────────────────
 
+    @PostMapping("/{id}/update")
+    public String updateMenu(
+            @PathVariable Long id,
+            @RequestParam String menuName,
+            @RequestParam(required = false) String icon,
+            @RequestParam(required = false) String url,
+            Authentication auth,
+            RedirectAttributes ra) {
+
+        log.info("[SystemMenuController] 메뉴 수정 - menuId: {}, menuName: {}, by: {}",
+                id, menuName, auth != null ? auth.getName() : "unknown");
+        try {
+            menuService.updateMenu(id, menuName, icon, url);
+            ra.addFlashAttribute("successMsg", "메뉴가 수정되었습니다.");
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            ra.addFlashAttribute("errorMsg", e.getMessage());
+        }
+        return "redirect:/system/menu";
+    }
+
     @PostMapping("/{id}/roles")
     public String updateRoles(
             @PathVariable Long id,

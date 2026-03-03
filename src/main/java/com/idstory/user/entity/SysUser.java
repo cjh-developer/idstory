@@ -124,7 +124,8 @@ public class SysUser {
     @Column(name = "deleted_by", length = 50)
     private String deletedBy;
 
-    @Column(name = "reserve_field_1") private String reserveField1;
+    /** 담당 업무 */
+    @Column(name = "reserve_field_1") private String jobDuty;
     @Column(name = "reserve_field_2") private String reserveField2;
     @Column(name = "reserve_field_3") private String reserveField3;
     @Column(name = "reserve_field_4") private String reserveField4;

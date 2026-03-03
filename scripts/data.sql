@@ -154,8 +154,8 @@ INSERT INTO ids_iam_menu (parent_id, menu_name, icon, url, sort_order, enabled) 
 
 -- ── 조직 관리 소분류 ─────────────────────────────────────────────────────
 INSERT INTO ids_iam_menu (parent_id, menu_name, icon, url, sort_order, enabled) VALUES
-                                                                                    (3, '조직도 관리', NULL, '/org/chart',    31, 1),
-                                                                                    (3, '조직사용자',  NULL, '/org/users',   32, 1),
+                                                                                    (3, '부서 관리',   NULL, '/org/chart',    31, 1),
+                                                                                    (3, '부서 사용자', NULL, '/org/users',   32, 1),
                                                                                     (3, '직위 관리',   NULL, '/org/position', 33, 1),
                                                                                     (3, '직급 관리',   NULL, '/org/grade',     34, 1),
                                                                                     (3, '직책 관리',   NULL, '/org/comp-role', 35, 1),

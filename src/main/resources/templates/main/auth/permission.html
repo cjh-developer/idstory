@@ -59,15 +59,15 @@
         </div>
 
         <!-- 2열 레이아웃 -->
-        <div style="display:flex;gap:1.2rem;align-items:flex-start;">
+        <div style="display:flex;gap:1.2rem;align-items:stretch;height:calc(100vh - 300px);">
 
             <!-- ── 왼쪽: 권한 트리 ────────────────────────────────────────── -->
-            <div class="card" style="width:320px;flex-shrink:0;min-height:500px;">
-                <div class="card-body" style="padding:1rem;">
-                    <div style="font-size:.85rem;font-weight:700;color:#374151;margin-bottom:.6rem;">
+            <div class="card" style="width:320px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden;">
+                <div class="card-body" style="padding:1rem;display:flex;flex-direction:column;flex:1;min-height:0;">
+                    <div style="font-size:.85rem;font-weight:700;color:#374151;margin-bottom:.6rem;flex-shrink:0;">
                         <i class="fas fa-shield-halved" style="margin-right:.4rem;color:#2563eb;"></i>권한 트리
                     </div>
-                    <div style="position:relative;margin-bottom:.7rem;">
+                    <div style="position:relative;margin-bottom:.7rem;flex-shrink:0;">
                         <i class="fas fa-search" style="position:absolute;left:.6rem;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:.8rem;pointer-events:none;"></i>
                         <input type="text" id="treeSearch"
                                placeholder="코드 또는 이름 검색"
@@ -80,17 +80,17 @@
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
-                    <div id="searchResultInfo" style="display:none;font-size:.76rem;color:#6b7280;margin-bottom:.4rem;"></div>
-                    <div id="permTree" style="font-size:.88rem;line-height:1.6;">
+                    <div id="searchResultInfo" style="display:none;font-size:.76rem;color:#6b7280;margin-bottom:.4rem;flex-shrink:0;"></div>
+                    <div id="permTree" style="font-size:.88rem;line-height:1.6;overflow-y:auto;flex:1;min-height:0;padding-right:.2rem;">
                         <div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">클라이언트를 선택하세요.</div>
                     </div>
                 </div>
             </div>
 
             <!-- ── 오른쪽: 권한 상세 ───────────────────────────────────────── -->
-            <div class="card" style="flex:1;min-height:500px;">
+            <div class="card" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
                 <div class="card-body" id="permDetail"
-                     style="padding:1.5rem;color:#9ca3af;font-size:.88rem;">
+                     style="padding:1.5rem;color:#9ca3af;font-size:.88rem;overflow-y:auto;flex:1;min-height:0;">
                     <div style="text-align:center;padding:3rem 0;">
                         <i class="fas fa-hand-pointer" style="font-size:2rem;margin-bottom:.8rem;display:block;"></i>
                         왼쪽 트리에서 권한을 선택하면 상세 정보가 표시됩니다.
@@ -174,12 +174,23 @@
     let currentClientOid   = null;
     let currentClientLabel = '';
     let searchKeyword = '';
+    const collapsedSet = new Set(); // 접힌 노드 OID 집합
+
+    // 페이지 로드 시 첫 번째 클라이언트 자동 선택
+    document.addEventListener('DOMContentLoaded', () => {
+        const sel = document.getElementById('clientSelect');
+        if (sel && sel.options.length > 1) {
+            sel.selectedIndex = 1;
+            onClientChange();
+        }
+    });
 
     function onClientChange() {
         const sel = document.getElementById('clientSelect');
         currentClientOid = sel.value;
         currentClientLabel = sel.options[sel.selectedIndex].text;
         selectedOid = null;
+        collapsedSet.clear();
         document.getElementById('permDetail').innerHTML =
             '<div style="text-align:center;padding:3rem 0;color:#9ca3af;">' +
             '<i class="fas fa-hand-pointer" style="font-size:2rem;margin-bottom:.8rem;display:block;"></i>' +
@@ -310,9 +321,10 @@
             const isDisabled  = node.useYn !== 'Y';
             const isMatched   = filterInfo ? filterInfo.matched.has(node.permOid) : false;
             const isSelected  = node.permOid === selectedOid;
+            const isCollapsed = !filterInfo && collapsedSet.has(node.permOid);
             const indent      = depth * 16;
 
-            let labelStyle = `cursor:pointer;padding:.28rem .5rem;border-radius:6px;display:flex;align-items:center;gap:.5rem;`;
+            let labelStyle = `cursor:pointer;padding:.28rem .5rem;border-radius:6px;display:flex;align-items:center;gap:.4rem;`;
             if (isSelected) labelStyle += 'background:#eff6ff;font-weight:700;';
             if (isDisabled) labelStyle += 'color:#f59e0b;';
             if (isMatched && !isSelected) labelStyle += 'border-left:3px solid #2563eb;padding-left:.35rem;';
@@ -321,22 +333,42 @@
                 ? '<span style="font-size:.7rem;background:#fef3c7;color:#b45309;padding:1px 5px;border-radius:4px;margin-left:.3rem;">미사용</span>'
                 : '';
 
-            const icon = hasChildren ? 'fa-shield-halved' : 'fa-key';
+            const icon = hasChildren ? (isCollapsed ? 'fa-shield-halved' : 'fa-shield') : 'fa-key';
             const iconColor = isDisabled ? '#f59e0b' : '#2563eb';
             const nameHtml = highlight(node.permName, searchKeyword);
             const codeHtml = highlight(node.permCode, searchKeyword);
 
+            const toggleBtn = hasChildren
+                ? `<i class="fas fa-chevron-${isCollapsed ? 'right' : 'down'}"
+                      onclick="event.stopPropagation();togglePermNode('${node.permOid}')"
+                      style="font-size:.62rem;color:#6b7280;width:10px;flex-shrink:0;cursor:pointer;"></i>`
+                : `<span style="display:inline-block;width:10px;flex-shrink:0;"></span>`;
+
             html += `<div style="margin-left:${indent}px;">
                 <div style="${labelStyle}" onclick="selectPerm('${node.permOid}')">
-                    <i class="fas ${icon}" style="color:${iconColor};font-size:.8rem;width:14px;"></i>
+                    ${toggleBtn}
+                    <i class="fas ${icon}" style="color:${iconColor};font-size:.8rem;width:14px;flex-shrink:0;"></i>
                     <span>${nameHtml}</span>
                     <span style="font-size:.75rem;color:#9ca3af;">(${codeHtml})</span>
                     ${badge}
                 </div>`;
-            if (hasChildren) html += buildTreeHtml(node.children, depth + 1, filterInfo);
+            if (hasChildren) {
+                html += `<div id="pchildren_${node.permOid}" style="${isCollapsed ? 'display:none;' : ''}">`;
+                html += buildTreeHtml(node.children, depth + 1, filterInfo);
+                html += '</div>';
+            }
             html += '</div>';
         }
         return html;
+    }
+
+    function togglePermNode(permOid) {
+        if (collapsedSet.has(permOid)) {
+            collapsedSet.delete(permOid);
+        } else {
+            collapsedSet.add(permOid);
+        }
+        renderTree(buildRoots(allPerms));
     }
 
     function selectPerm(oid) {
