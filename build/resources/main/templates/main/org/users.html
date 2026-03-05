@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
-<head th:replace="~{include/layout :: head('조직사용자')}"></head>
+<head th:replace="~{include/layout :: head('부서 사용자')}"></head>
 <body>
 
 <header th:replace="~{include/header :: header}"></header>
@@ -19,9 +19,9 @@
                     <i class="fas fa-chevron-right"></i>
                     <span>조직 관리</span>
                     <i class="fas fa-chevron-right"></i>
-                    <span>조직사용자</span>
+                    <span>부서 사용자</span>
                 </div>
-                <h2 class="page-title">조직사용자</h2>
+                <h2 class="page-title">부서 사용자</h2>
                 <p class="page-subtitle">부서별 사용자를 조회하고 배정·이동·해제합니다.</p>
             </div>
         </div>
@@ -36,31 +36,31 @@
         </div>
 
         <!-- 2열 레이아웃 -->
-        <div style="display:flex;gap:1.2rem;align-items:flex-start;">
+        <div style="display:flex;gap:1.2rem;align-items:stretch;height:calc(100vh - 260px);">
 
             <!-- ── 왼쪽: 부서 트리 ──────────────────────────────────── -->
-            <div class="card" style="width:280px;flex-shrink:0;min-height:540px;">
-                <div class="card-body" style="padding:1rem;">
-                    <div style="font-size:.85rem;font-weight:700;color:#374151;margin-bottom:.6rem;">
+            <div class="card" style="width:280px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden;">
+                <div class="card-body" style="padding:1rem;display:flex;flex-direction:column;flex:1;min-height:0;">
+                    <div style="font-size:.85rem;font-weight:700;color:#374151;margin-bottom:.6rem;flex-shrink:0;">
                         <i class="fas fa-sitemap" style="margin-right:.4rem;color:#2563eb;"></i>부서 트리
                     </div>
                     <!-- 검색 -->
-                    <div style="position:relative;margin-bottom:.7rem;">
+                    <div style="position:relative;margin-bottom:.7rem;flex-shrink:0;">
                         <i class="fas fa-search" style="position:absolute;left:.6rem;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:.8rem;pointer-events:none;"></i>
                         <input type="text" id="treeSearch" placeholder="부서 검색"
                                oninput="filterDeptTree()"
                                style="width:100%;padding:.38rem .7rem .38rem 1.9rem;font-size:.83rem;
                                       border:1px solid #d1d5db;border-radius:6px;outline:none;box-sizing:border-box;">
                     </div>
-                    <div id="deptTree" style="font-size:.88rem;line-height:1.7;">
+                    <div id="deptTree" style="font-size:.88rem;line-height:1.7;overflow-y:auto;flex:1;min-height:0;padding-right:.2rem;">
                         <div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">로딩 중...</div>
                     </div>
                 </div>
             </div>
 
             <!-- ── 오른쪽: 사용자 목록 ──────────────────────────────── -->
-            <div class="card" style="flex:1;min-height:540px;">
-                <div class="card-body" id="userPanel" style="padding:1.5rem;color:#9ca3af;font-size:.88rem;">
+            <div class="card" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+                <div class="card-body" id="userPanel" style="padding:1.5rem;color:#9ca3af;font-size:.88rem;overflow-y:auto;flex:1;min-height:0;">
                     <div style="text-align:center;padding:3rem 0;">
                         <i class="fas fa-hand-pointer" style="font-size:2rem;margin-bottom:.8rem;display:block;"></i>
                         왼쪽 트리에서 부서를 선택하면 사용자 목록이 표시됩니다.
@@ -203,6 +203,7 @@
     let allDepts          = [];   // 전체 부서 목록
     let selectedDept      = null; // 현재 선택된 부서 객체 {deptOid, deptCode, deptName}
     let deptSearchKw      = '';   // 부서 트리 검색어
+    const collapsedSet    = new Set(); // 접힌 노드 OID 집합
     let assignUserOid     = '';   // 배정 모달에서 선택된 사용자 OID
     let moveUserOid       = '';   // 이동 모달 대상 사용자 OID
     let moveUserTargetOid = '';   // 이동 모달에서 선택된 목표 부서 OID
@@ -283,12 +284,15 @@
         let html = '';
         nodes.sort((a, b) => a.sortOrder - b.sortOrder);
         for (const node of nodes) {
-            const children  = all.filter(d => d.parentDeptOid === node.deptOid);
-            const indent    = depth * 14;
-            const isSelected = selectedDept && selectedDept.deptOid === node.deptOid;
-            const isMatched  = matchedOids.size > 0 && matchedOids.has(node.deptOid);
+            const children    = all.filter(d => d.parentDeptOid === node.deptOid);
+            const hasChildren = children.length > 0;
+            const indent      = depth * 14;
+            const isSelected  = selectedDept && selectedDept.deptOid === node.deptOid;
+            const isMatched   = matchedOids.size > 0 && matchedOids.has(node.deptOid);
+            // 검색 중에는 접힌 상태 무시
+            const isCollapsed = !deptSearchKw && collapsedSet.has(node.deptOid);
 
-            let style = `cursor:pointer;padding:.28rem .5rem;border-radius:6px;display:flex;align-items:center;gap:.5rem;`;
+            let style = `cursor:pointer;padding:.28rem .5rem;border-radius:6px;display:flex;align-items:center;gap:.4rem;`;
             if (isSelected) style += 'background:#eff6ff;font-weight:700;color:#2563eb;';
             if (isMatched && !isSelected) style += 'border-left:3px solid #2563eb;padding-left:.35rem;';
 
@@ -297,17 +301,38 @@
                     m => `<mark style="background:#fef08a;padding:0;border-radius:2px;">${m}</mark>`)
                 : node.deptName;
 
+            const toggleBtn = hasChildren
+                ? `<i class="fas fa-chevron-${isCollapsed ? 'right' : 'down'}"
+                      onclick="event.stopPropagation();toggleNode('${node.deptOid}')"
+                      style="font-size:.62rem;color:#6b7280;width:10px;flex-shrink:0;cursor:pointer;"></i>`
+                : `<span style="display:inline-block;width:10px;flex-shrink:0;"></span>`;
+
+            const icon = hasChildren ? (isCollapsed ? 'fa-folder' : 'fa-folder-open') : 'fa-building';
+
             html += `<div style="margin-left:${indent}px;">
                 <div style="${style}" onclick="selectDept('${node.deptOid}','${node.deptCode}','${node.deptName.replace(/'/g,"\\'")}')">
-                    <i class="fas ${children.length ? 'fa-folder' : 'fa-building'}"
-                       style="color:${isSelected?'#2563eb':'#6b7280'};font-size:.8rem;width:14px;"></i>
+                    ${toggleBtn}
+                    <i class="fas ${icon}" style="color:${isSelected?'#2563eb':'#6b7280'};font-size:.8rem;width:14px;flex-shrink:0;"></i>
                     <span>${nameHtml}</span>
                     <span style="font-size:.74rem;color:#9ca3af;">(${node.deptCode})</span>
                 </div>`;
-            if (children.length) html += buildDeptTree(children, all, depth + 1, matchedOids);
+            if (hasChildren) {
+                html += `<div id="children_${node.deptOid}" style="${isCollapsed ? 'display:none;' : ''}">`;
+                html += buildDeptTree(children, all, depth + 1, matchedOids);
+                html += `</div>`;
+            }
             html += `</div>`;
         }
         return html;
+    }
+
+    function toggleNode(deptOid) {
+        if (collapsedSet.has(deptOid)) {
+            collapsedSet.delete(deptOid);
+        } else {
+            collapsedSet.add(deptOid);
+        }
+        renderDeptTree();
     }
 
     // ── 부서 선택 → 사용자 패널 로드 ────────────────────────────────────────

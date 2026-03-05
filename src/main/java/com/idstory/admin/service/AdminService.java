@@ -144,7 +144,7 @@ public class AdminService {
      */
     @Transactional(readOnly = true)
     public SysAdmin getAdminByOid(String adminOid) {
-        return adminRepository.findById(adminOid)
+        return adminRepository.findAdminWithUser(adminOid)
                 .orElseThrow(() -> new IllegalArgumentException("관리자를 찾을 수 없습니다: " + adminOid));
     }
 

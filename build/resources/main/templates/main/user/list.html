@@ -135,17 +135,17 @@
                         <thead>
                         <tr>
                             <th style="width:50px;">No.</th>
-                            <th style="width:130px;">아이디</th>
-                            <th style="width:90px;">이름</th>
-                            <th style="width:180px;">이메일</th>
-                            <th style="width:120px;">휴대번호</th>
-                            <th style="width:90px;">부서</th>
-                            <th style="width:75px;">역할</th>
-                            <th style="width:75px;">사용여부</th>
-                            <th style="width:85px;">상태</th>
-                            <th style="width:60px;">잠금</th>
-                            <th style="width:100px;">생성일</th>
+                            <th style="width:130px;cursor:pointer;user-select:none;" onclick="sortTable(1,'text')" data-sort="1">아이디 <i class="fas fa-sort sort-icon" style="font-size:.7rem;color:#9ca3af;"></i></th>
+                            <th style="width:90px;cursor:pointer;user-select:none;" onclick="sortTable(2,'text')" data-sort="2">이름 <i class="fas fa-sort sort-icon" style="font-size:.7rem;color:#9ca3af;"></i></th>
+                            <th style="width:180px;cursor:pointer;user-select:none;" onclick="sortTable(3,'text')" data-sort="3">이메일 <i class="fas fa-sort sort-icon" style="font-size:.7rem;color:#9ca3af;"></i></th>
+                            <th style="width:120px;cursor:pointer;user-select:none;" onclick="sortTable(4,'text')" data-sort="4">휴대번호 <i class="fas fa-sort sort-icon" style="font-size:.7rem;color:#9ca3af;"></i></th>
+                            <th style="width:90px;cursor:pointer;user-select:none;" onclick="sortTable(5,'text')" data-sort="5">부서 <i class="fas fa-sort sort-icon" style="font-size:.7rem;color:#9ca3af;"></i></th>
+                            <th style="width:75px;cursor:pointer;user-select:none;" onclick="sortTable(6,'text')" data-sort="6">역할 <i class="fas fa-sort sort-icon" style="font-size:.7rem;color:#9ca3af;"></i></th>
+                            <th style="width:75px;cursor:pointer;user-select:none;" onclick="sortTable(7,'text')" data-sort="7">사용여부 <i class="fas fa-sort sort-icon" style="font-size:.7rem;color:#9ca3af;"></i></th>
+                            <th style="width:85px;cursor:pointer;user-select:none;" onclick="sortTable(8,'text')" data-sort="8">상태 <i class="fas fa-sort sort-icon" style="font-size:.7rem;color:#9ca3af;"></i></th>
+                            <th style="width:60px;cursor:pointer;user-select:none;" onclick="sortTable(9,'text')" data-sort="9">잠금 <i class="fas fa-sort sort-icon" style="font-size:.7rem;color:#9ca3af;"></i></th>
                             <th style="width:60px;">겸직</th>
+                            <th style="width:60px;">권한</th>
                         </tr>
                         </thead>
                         <tbody>
@@ -161,21 +161,21 @@
                                 th:text="${userPage.totalElements - (userPage.number * userPage.size) - stat.index}">1</td>
 
                             <!-- 아이디 -->
-                            <td>
+                            <td th:attr="data-val=${user.userId}">
                                 <span th:text="${user.userId}" style="font-weight:600;">userId</span>
                             </td>
 
                             <!-- 이름 -->
-                            <td th:text="${user.name}">이름</td>
+                            <td th:attr="data-val=${user.name}" th:text="${user.name}">이름</td>
 
                             <!-- 이메일 -->
-                            <td style="font-size:.85rem;" th:text="${user.email} ?: '—'">이메일</td>
+                            <td style="font-size:.85rem;" th:attr="data-val=${user.email}" th:text="${user.email} ?: '—'">이메일</td>
 
                             <!-- 휴대번호 -->
-                            <td style="font-size:.85rem;" th:text="${user.phone} ?: '—'">휴대번호</td>
+                            <td style="font-size:.85rem;" th:attr="data-val=${user.phone}" th:text="${user.phone} ?: '—'">휴대번호</td>
 
                             <!-- 부서 -->
-                            <td>
+                            <td th:attr="data-val=${deptMap.get(user.deptCode) ?: (user.deptCode ?: '')}">
                                 <span th:if="${user.deptCode != null}"
                                       th:text="${deptMap.get(user.deptCode)} ?: ${user.deptCode}">부서</span>
                                 <span th:if="${user.deptCode == null}"
@@ -183,13 +183,13 @@
                             </td>
 
                             <!-- 역할 -->
-                            <td class="cell-center">
+                            <td class="cell-center" th:attr="data-val=${user.role}">
                                 <span th:class="${user.role == 'ADMIN'} ? 'role-badge admin' : 'role-badge user'"
                                       th:text="${user.role}">ROLE</span>
                             </td>
 
                             <!-- 사용여부 -->
-                            <td class="cell-center">
+                            <td class="cell-center" th:attr="data-val=${user.useYn}">
                                 <span th:if="${user.useYn == 'Y'}"
                                       class="role-badge"
                                       style="background:var(--blue-50);color:var(--blue-600);">사용</span>
@@ -199,7 +199,7 @@
                             </td>
 
                             <!-- 상태 -->
-                            <td class="cell-center">
+                            <td class="cell-center" th:attr="data-val=${user.status}">
                                 <span th:switch="${user.status}">
                                     <span th:case="'ACTIVE'"
                                           class="role-badge"
@@ -217,7 +217,7 @@
                             </td>
 
                             <!-- 잠금 -->
-                            <td class="cell-center">
+                            <td class="cell-center" th:attr="data-val=${user.lockYn == 'Y' ? 'Y' : 'N'}">
                                 <span th:if="${user.lockYn == 'Y'}"
                                       class="role-badge"
                                       style="background:#ffedd5;color:#c2410c;"
@@ -228,12 +228,6 @@
                                       style="color:var(--gray-300);font-size:.8rem;">—</span>
                             </td>
 
-                            <!-- 생성일 -->
-                            <td style="font-size:.82rem;"
-                                th:text="${user.createdAt != null}
-                                    ? ${#temporals.format(user.createdAt, 'yyyy-MM-dd')}
-                                    : '—'">날짜</td>
-
                             <!-- 조직 관리 -->
                             <td class="cell-center" style="padding:.3rem;" onclick="event.stopPropagation()">
                                 <button type="button"
@@ -243,6 +237,18 @@
                                                font-size:.75rem;padding:.25rem .5rem;border-radius:4px;"
                                         title="겸직 관리">
                                     <i class="fas fa-building-user"></i>
+                                </button>
+                            </td>
+
+                            <!-- 권한 확인 -->
+                            <td class="cell-center" style="padding:.3rem;" onclick="event.stopPropagation()">
+                                <button type="button"
+                                        th:attr="data-user-oid=${user.oid},data-user-name=${user.name}"
+                                        onclick="openUserPermsModal(this.dataset.userOid, this.dataset.userName)"
+                                        style="border:none;background:#f3e8ff;cursor:pointer;color:#7c3aed;
+                                               font-size:.75rem;padding:.25rem .5rem;border-radius:4px;"
+                                        title="권한 확인">
+                                    <i class="fas fa-shield-halved"></i>
                                 </button>
                             </td>
 
@@ -301,6 +307,32 @@
         </div>
 
     </main>
+</div>
+
+<!-- ============================================================
+     사용자 권한 확인 모달
+     ============================================================ -->
+<div class="modal fade" id="modalUserPerms" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header" style="border-bottom:1px solid var(--gray-100);">
+                <h5 class="modal-title" style="font-weight:700;font-size:1rem;">
+                    <i class="fas fa-shield-halved" style="color:#7c3aed;margin-right:.4rem;"></i>
+                    사용자 권한 현황
+                    <span id="permsModalUserBadge"
+                          style="font-size:.82rem;font-weight:600;color:var(--gray-500);
+                                 background:var(--gray-100);border-radius:5px;padding:.15rem .5rem;margin-left:.4rem;"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="permsModalBody" style="min-height:200px;">
+                <div style="color:#9ca3af;font-size:.85rem;padding:.5rem;">로딩 중...</div>
+            </div>
+            <div class="modal-footer" style="border-top:1px solid var(--gray-100);">
+                <button type="button" class="btn-modal-cancel" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- ============================================================
@@ -950,6 +982,81 @@ function showToast(msg, success) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   사용자 권한 현황 모달
+   ═══════════════════════════════════════════════════════════════ */
+function openUserPermsModal(userOid, userName) {
+    document.getElementById('permsModalUserBadge').textContent = userName || '';
+    document.getElementById('permsModalBody').innerHTML =
+        '<div style="color:#9ca3af;font-size:.85rem;padding:.5rem;">로딩 중...</div>';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalUserPerms')).show();
+
+    fetch(`/auth/perm-user/user-perms?userOid=${userOid}`)
+        .then(r => r.json())
+        .then(data => renderUserPerms(data))
+        .catch(() => {
+            document.getElementById('permsModalBody').innerHTML =
+                '<div style="color:#ef4444;font-size:.85rem;padding:.5rem;">조회 중 오류가 발생했습니다.</div>';
+        });
+}
+
+function renderUserPerms(data) {
+    const el = document.getElementById('permsModalBody');
+    const direct    = data.direct    || [];
+    const viaDept   = data.viaDept   || [];
+    const exceptions = data.exceptions || [];
+    const total = direct.length + viaDept.length;
+
+    if (total === 0 && exceptions.length === 0) {
+        el.innerHTML = '<div style="color:#9ca3af;font-size:.85rem;padding:.5rem;">배정된 권한이 없습니다.</div>';
+        return;
+    }
+
+    const rowHtml = (list) => list.map(p => `
+        <tr>
+            <td style="padding:.35rem .6rem;font-weight:600;color:#1d4ed8;">${p.permName}</td>
+            <td style="padding:.35rem .6rem;color:#6b7280;font-size:.82rem;">${p.permCode}</td>
+            <td style="padding:.35rem .6rem;font-size:.82rem;">${p.assignType}</td>
+        </tr>`).join('');
+
+    const tableStyle = 'width:100%;border-collapse:collapse;font-size:.85rem;';
+    const thStyle = 'padding:.35rem .6rem;text-align:left;color:#374151;font-weight:600;background:#f9fafb;border-bottom:1px solid #e5e7eb;';
+
+    let html = '';
+
+    if (direct.length > 0 || viaDept.length > 0) {
+        html += `<div style="font-size:.8rem;font-weight:700;color:#374151;margin-bottom:.4rem;">
+                     <i class="fas fa-shield-halved" style="color:#2563eb;margin-right:.3rem;"></i>
+                     보유 권한 (${total}건)
+                 </div>
+                 <table style="${tableStyle}">
+                     <thead><tr>
+                         <th style="${thStyle}">권한명</th>
+                         <th style="${thStyle}">코드</th>
+                         <th style="${thStyle}">배정 방식</th>
+                     </tr></thead>
+                     <tbody>${rowHtml([...direct, ...viaDept])}</tbody>
+                 </table>`;
+    }
+
+    if (exceptions.length > 0) {
+        html += `<div style="font-size:.8rem;font-weight:700;color:#991b1b;margin:.9rem 0 .4rem;">
+                     <i class="fas fa-ban" style="margin-right:.3rem;"></i>
+                     예외 제외 권한 (${exceptions.length}건)
+                 </div>
+                 <table style="${tableStyle}">
+                     <thead><tr>
+                         <th style="${thStyle}">권한명</th>
+                         <th style="${thStyle}">코드</th>
+                         <th style="${thStyle}">배정 방식</th>
+                     </tr></thead>
+                     <tbody>${rowHtml(exceptions)}</tbody>
+                 </table>`;
+    }
+
+    el.innerHTML = html || '<div style="color:#9ca3af;font-size:.85rem;padding:.5rem;">배정된 권한이 없습니다.</div>';
+}
+
+/* ═══════════════════════════════════════════════════════════════
    피커 (직위 / 직급 / 직책 선택)
    ═══════════════════════════════════════════════════════════════ */
 let pickerCallback = null;
@@ -1121,6 +1228,36 @@ async function deleteOrgMap(mapOid) {
 function resetOrgForm() {
     document.getElementById('orgDeptCode').value = '';
     document.getElementById('orgModalError').style.display = 'none';
+}
+
+/* ── 테이블 정렬 ──────────────────────────────────────────────── */
+let _sortCol = -1, _sortAsc = true;
+function sortTable(colIdx, type) {
+    const tbody = document.querySelector('.menu-table tbody');
+    if (!tbody) return;
+    const rows = Array.from(tbody.querySelectorAll('tr[data-oid]'));
+    if (rows.length === 0) return;
+    const asc = (_sortCol === colIdx) ? !_sortAsc : true;
+    _sortCol = colIdx; _sortAsc = asc;
+
+    document.querySelectorAll('.menu-table th[data-sort]').forEach(th => {
+        const ic = th.querySelector('.sort-icon');
+        if (ic) ic.className = 'fas fa-sort sort-icon';
+        ic && (ic.style.color = '#9ca3af');
+    });
+    const activeTh = document.querySelector(`.menu-table th[data-sort="${colIdx}"]`);
+    if (activeTh) {
+        const ic = activeTh.querySelector('.sort-icon');
+        if (ic) { ic.className = `fas fa-sort-${asc ? 'up' : 'down'} sort-icon`; ic.style.color = '#2563eb'; }
+    }
+
+    rows.sort((a, b) => {
+        const av = (a.cells[colIdx]?.dataset?.val ?? a.cells[colIdx]?.textContent?.trim() ?? '');
+        const bv = (b.cells[colIdx]?.dataset?.val ?? b.cells[colIdx]?.textContent?.trim() ?? '');
+        const cmp = type === 'num' ? ((parseFloat(av)||0) - (parseFloat(bv)||0)) : av.localeCompare(bv, 'ko');
+        return asc ? cmp : -cmp;
+    });
+    rows.forEach(r => tbody.appendChild(r));
 }
 </script>
 

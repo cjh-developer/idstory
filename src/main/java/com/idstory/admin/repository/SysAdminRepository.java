@@ -40,4 +40,7 @@ public interface SysAdminRepository extends JpaRepository<SysAdmin, String> {
               AND (:keyword IS NULL OR u.userId LIKE %:keyword% OR u.name LIKE %:keyword%)
             """)
     Page<SysAdmin> findByFilter(@Param("keyword") String keyword, Pageable pageable);
+
+    @Query("select a from SysAdmin a join fetch a.user where a.adminOid = :adminOid")
+    Optional<SysAdmin> findAdminWithUser(@Param("adminOid") String adminOid);
 }

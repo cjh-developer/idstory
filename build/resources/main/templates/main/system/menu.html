@@ -174,9 +174,16 @@
 
                             <!-- 작업 -->
                             <td class="cell-center" style="display:flex; gap:4px; justify-content:center; padding:.6rem .5rem;">
-                                <!-- 역할 편집 (모바일용 단독 버튼, 잠금 아닐 때) -->
-                                <!-- 삭제 -->
                                 <th:block th:if="${!menu.locked}">
+                                    <!-- 편집 -->
+                                    <button type="button"
+                                            class="btn-role-edit"
+                                            th:attr="data-id=${menu.menuId}, data-name=${menu.menuName}, data-icon=${menu.icon} ?: '', data-url=${menu.url} ?: ''"
+                                            onclick="openEditModal(this)"
+                                            title="메뉴 편집">
+                                        <i class="fas fa-pen"></i>
+                                    </button>
+                                    <!-- 삭제 -->
                                     <form th:action="@{/system/menu/{id}/delete(id=${menu.menuId})}" method="post"
                                           th:id="'del-' + ${menu.menuId}">
                                         <button type="button"
@@ -329,6 +336,55 @@
     </div>
 </div>
 
+<!-- ══ 메뉴 편집 모달 ══════════════════════════════════════════════════════ -->
+<div class="modal fade" id="editMenuModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content menu-modal">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-pen" style="color:var(--blue-500);margin-right:.4rem;"></i>
+                    메뉴 편집
+                    <span id="editMenuTitle" style="font-weight:400;color:var(--gray-500);margin-left:.3rem;"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editMenuForm" method="post">
+                <div class="modal-body">
+                    <div class="modal-field">
+                        <label class="modal-label">메뉴명 <span class="required">*</span></label>
+                        <input type="text" name="menuName" id="editMenuName" class="modal-input"
+                               placeholder="메뉴 이름" required maxlength="50" style="width:100%;">
+                    </div>
+                    <div class="modal-field">
+                        <label class="modal-label">아이콘
+                            <span class="modal-optional">(Font Awesome 클래스)</span></label>
+                        <div style="display:flex;align-items:center;gap:.6rem;">
+                            <input type="text" name="icon" id="editMenuIcon" class="modal-input"
+                                   placeholder="예: fas fa-home" style="flex:1;"
+                                   oninput="previewEditIcon(this.value)">
+                            <span id="editIconPreview" style="font-size:1.2rem;width:24px;text-align:center;color:#2563eb;">
+                                <i class="fas fa-question"></i>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="modal-field">
+                        <label class="modal-label">URL
+                            <span class="modal-optional">(미입력 시 폴더형)</span></label>
+                        <input type="text" name="url" id="editMenuUrl" class="modal-input"
+                               placeholder="/example/path" style="width:100%;">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-modal-cancel" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn-modal-save">
+                        <i class="fas fa-check"></i> 저장
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script th:src="@{/js/common.js}"></script>
 <script>
@@ -344,6 +400,31 @@
     /* 아이콘 미리보기 */
     function previewIcon(cls) {
         var el = document.getElementById('iconPreview');
+        if (!el) return;
+        el.innerHTML = cls && cls.trim()
+            ? '<i class="' + cls.trim() + '"></i>'
+            : '<i class="fas fa-question"></i>';
+    }
+
+    /* 메뉴 편집 모달 열기 */
+    function openEditModal(btn) {
+        var id   = btn.dataset.id;
+        var name = btn.dataset.name;
+        var icon = btn.dataset.icon || '';
+        var url  = btn.dataset.url  || '';
+
+        document.getElementById('editMenuTitle').textContent = '— ' + name;
+        document.getElementById('editMenuName').value = name;
+        document.getElementById('editMenuIcon').value = icon;
+        document.getElementById('editMenuUrl').value  = url;
+        previewEditIcon(icon);
+        document.getElementById('editMenuForm').action = '/system/menu/' + id + '/update';
+        new bootstrap.Modal(document.getElementById('editMenuModal')).show();
+    }
+
+    /* 편집 모달 아이콘 미리보기 */
+    function previewEditIcon(cls) {
+        var el = document.getElementById('editIconPreview');
         if (!el) return;
         el.innerHTML = cls && cls.trim()
             ? '<i class="' + cls.trim() + '"></i>'
