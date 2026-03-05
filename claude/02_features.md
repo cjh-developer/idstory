@@ -150,6 +150,25 @@ GlobalControllerAdvice.menuTree(Authentication)
 - `POST /admin/api/{adminOid}/demote` → 관리자 해제
 - `POST /admin/list` → 관리자 등록
 
+## 직접 수정 내용
+```
+SysAdminRepository.java 다음과 같이 join 추가
+
+@Query("select a from SysAdmin a join fetch a.user where a.adminOid = :adminOid")
+    Optional<SysAdmin> findAdminWithUser(@Param("adminOid") String adminOid);
+    
+AdminService.java 수정
+@Transactional(readOnly = true)
+    public SysAdmin getAdminByOid(String adminOid) {
+        return adminRepository.findAdminWithUser(adminOid)
+                .orElseThrow(() -> new IllegalArgumentException("관리자를 찾을 수 없습니다: " + adminOid));
+    }
+
+```
+
+
+
+
 ---
 
 ### 6. 부서 관리
