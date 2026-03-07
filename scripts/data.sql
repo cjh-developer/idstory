@@ -165,9 +165,9 @@ INSERT INTO ids_iam_menu (parent_id, menu_name, icon, url, sort_order, enabled) 
 INSERT INTO ids_iam_menu (parent_id, menu_name, icon, url, sort_order, enabled) VALUES
                                                                                     (4, '역할 관리', NULL, '/auth/role',       41, 1),
                                                                                     (4, '권한 관리', NULL, '/auth/permission', 42, 1),
-                                                                                    (4, '접근 제어', NULL, '#',                43, 1),
+                                                                                    (4, '접근 제어', NULL, '/auth/access-control', 43, 1),
                                                                                     (4, '권한 설정',  NULL, '/auth/setting',    44, 1),
-                                                                                    (4, '권한 사용자', NULL, '/auth/perm-user',  45, 1);
+                                                                                    (4, '역할 사용자', NULL, '/auth/role-user',  45, 1);
 
 -- ── 인증 관리 소분류 ─────────────────────────────────────────────────────
 INSERT INTO ids_iam_menu (parent_id, menu_name, icon, url, sort_order, enabled) VALUES
@@ -177,9 +177,13 @@ INSERT INTO ids_iam_menu (parent_id, menu_name, icon, url, sort_order, enabled) 
 
 -- ── 정책 관리 소분류 ─────────────────────────────────────────────────────
 INSERT INTO ids_iam_menu (parent_id, menu_name, icon, url, sort_order, enabled) VALUES
-                                                                                    (6, '보안 정책',     NULL, '#', 61, 1),
-                                                                                    (6, '비밀번호 정책', NULL, '/policy/password', 62, 1),
-                                                                                    (6, '접속 정책',     NULL, '#', 63, 1);
+    (6, '관리자 정책',   NULL, '/policy/manage/admin',    61, 1),
+    (6, '사용자 정책',   NULL, '/policy/manage/user',     62, 1),
+    (6, '비밀번호 정책', NULL, '/policy/manage/password', 63, 1),
+    (6, '로그인 정책',   NULL, '/policy/manage/login',    64, 1),
+    (6, '계정 보안',     NULL, '/policy/manage/account',  65, 1),
+    (6, '감사 로그',     NULL, '/policy/manage/audit',    66, 1),
+    (6, '시스템 보안',   NULL, '/policy/manage/system',   67, 1);
 
 -- ── 시스템 연계 소분류 ───────────────────────────────────────────────────
 INSERT INTO ids_iam_menu (parent_id, menu_name, icon, url, sort_order, enabled) VALUES
@@ -227,6 +231,99 @@ WHERE m.parent_id IS NOT NULL;
 -- ============================================================
 INSERT INTO ids_iam_pwd_policy (policy_key, policy_value, description) VALUES
     ('MAX_LOGIN_FAIL_COUNT', '5', '로그인 연속 실패 허용 횟수 (초과 시 계정 자동 잠금)');
+
+-- ============================================================
+--  ids_iam_policy 초기 데이터 (60개 항목)
+-- ============================================================
+
+-- ADMIN_POLICY (8개)
+INSERT INTO ids_iam_policy (policy_group, policy_key, policy_value, value_type, description) VALUES
+    ('ADMIN_POLICY', 'ADMIN_MFA_ENABLED',           'false', 'BOOLEAN',      '관리자 2차 인증 활성화'),
+    ('ADMIN_POLICY', 'ADMIN_PWD_CHANGE_PERIOD',     '90',    'INTEGER',      '관리자 비밀번호 변경 주기(일, 0=비활성)'),
+    ('ADMIN_POLICY', 'ADMIN_MAX_LOGIN_FAIL',         '5',     'INTEGER',      '관리자 로그인 최대 실패 횟수'),
+    ('ADMIN_POLICY', 'ADMIN_LOCK_AUTO_RELEASE_MINS', '0',     'INTEGER',      '관리자 계정 잠금 자동 해제(분, 0=비활성)'),
+    ('ADMIN_POLICY', 'ADMIN_MAX_IP_ALLOW',           '0',     'INTEGER',      '관리자 허용 IP 수(0=무제한)'),
+    ('ADMIN_POLICY', 'ADMIN_STATUS_CHECK',           'true',  'BOOLEAN',      '관리자 로그인 시 상태 체크'),
+    ('ADMIN_POLICY', 'ADMIN_SESSION_TIMEOUT',        '60',    'INTEGER',      '관리자 세션 유지 시간(분)'),
+    ('ADMIN_POLICY', 'ADMIN_ALLOW_COUNTRIES',        '',      'MULTI_STRING', '관리자 접속 허용 국가(콤마 구분, 비어있으면 무제한)');
+
+-- USER_POLICY (8개)
+INSERT INTO ids_iam_policy (policy_group, policy_key, policy_value, value_type, description) VALUES
+    ('USER_POLICY', 'USER_ID_MIN_LEN',       '4',     'INTEGER', '사용자 ID 최소 길이'),
+    ('USER_POLICY', 'USER_ID_MAX_LEN',       '20',    'INTEGER', '사용자 ID 최대 길이'),
+    ('USER_POLICY', 'USER_ID_REQUIRE_LETTER','true',  'BOOLEAN', '사용자 ID에 영문자 포함 필수'),
+    ('USER_POLICY', 'USER_ID_START_LETTER',  'false', 'BOOLEAN', '사용자 ID를 영문자로 시작'),
+    ('USER_POLICY', 'USER_ID_REGEX',         '',      'STRING',  '사용자 ID 정규식 패턴(비어있으면 미적용)'),
+    ('USER_POLICY', 'USER_HARD_DELETE',      'false', 'BOOLEAN', '사용자 하드 삭제 여부(false=소프트 삭제)'),
+    ('USER_POLICY', 'USER_DORMANT_DAYS',     '90',    'INTEGER', '휴면 계정 기준 미접속 일수'),
+    ('USER_POLICY', 'USER_INACTIVE_DAYS',    '180',   'INTEGER', '비활성 계정 전환 기준 일수');
+
+-- PASSWORD_POLICY (21개)
+INSERT INTO ids_iam_policy (policy_group, policy_key, policy_value, value_type, description) VALUES
+    ('PASSWORD_POLICY', 'PWD_MIN_LEN',           '8',              'INTEGER',      '비밀번호 최소 길이'),
+    ('PASSWORD_POLICY', 'PWD_MAX_LEN',           '100',            'INTEGER',      '비밀번호 최대 길이'),
+    ('PASSWORD_POLICY', 'PWD_MIN_UPPER',         '0',              'INTEGER',      '대문자 최소 포함 개수(0=미검사)'),
+    ('PASSWORD_POLICY', 'PWD_MIN_LOWER',         '0',              'INTEGER',      '소문자 최소 포함 개수(0=미검사)'),
+    ('PASSWORD_POLICY', 'PWD_MIN_DIGIT',         '0',              'INTEGER',      '숫자 최소 포함 개수(0=미검사)'),
+    ('PASSWORD_POLICY', 'PWD_MIN_SPECIAL',       '0',              'INTEGER',      '특수문자 최소 포함 개수(0=미검사)'),
+    ('PASSWORD_POLICY', 'PWD_ALLOWED_SPECIAL',   '!@#$%^&*()_+-=', 'STRING',       '허용 특수문자 목록'),
+    ('PASSWORD_POLICY', 'PWD_MAX_REPEAT',        '0',              'INTEGER',      '동일 문자 최대 연속 반복(0=미검사)'),
+    ('PASSWORD_POLICY', 'PWD_HISTORY_COUNT',     '0',              'INTEGER',      '비밀번호 이력 재사용 금지 개수(0=미검사)'),
+    ('PASSWORD_POLICY', 'PWD_RESET_VALUE',       '1234',           'STRING',       '초기화 비밀번호 고정값'),
+    ('PASSWORD_POLICY', 'PWD_RESET_TYPE',        'FIXED',          'ENUM',         '초기화 비밀번호 방식(FIXED|RANDOM)'),
+    ('PASSWORD_POLICY', 'PWD_CHANGE_PERIOD',     '0',              'INTEGER',      '비밀번호 변경 주기(일, 0=비활성)'),
+    ('PASSWORD_POLICY', 'PWD_EXTEND_PERIOD',     '7',              'INTEGER',      '비밀번호 만료 후 연장 가능 일수'),
+    ('PASSWORD_POLICY', 'MAX_LOGIN_FAIL_COUNT',  '5',              'INTEGER',      '로그인 최대 실패 횟수(초과 시 잠금)'),
+    ('PASSWORD_POLICY', 'PWD_SALT_ENABLED',      'false',          'BOOLEAN',      '비밀번호 Salt 사용 여부'),
+    ('PASSWORD_POLICY', 'PWD_SALT_LEN',          '8',              'INTEGER',      'Salt 길이(RANDOM 시)'),
+    ('PASSWORD_POLICY', 'PWD_CHECK_PERIOD',      '0',              'INTEGER',      '비밀번호 강도 검사 주기(일, 0=미검사)'),
+    ('PASSWORD_POLICY', 'PWD_NO_CONSECUTIVE',    'false',          'BOOLEAN',      '연속 문자 사용 금지'),
+    ('PASSWORD_POLICY', 'PWD_FORBIDDEN_WORDS',   '',               'MULTI_STRING', '금지 단어 목록(콤마 구분)'),
+    ('PASSWORD_POLICY', 'PWD_MIN_SCORE',         '0',              'INTEGER',      '최소 비밀번호 강도 점수(0=미검사)'),
+    ('PASSWORD_POLICY', 'PWD_MAX_FAIL_LOCK',     'true',           'BOOLEAN',      '최대 실패 시 계정 잠금 활성화');
+
+-- LOGIN_POLICY (7개)
+INSERT INTO ids_iam_policy (policy_group, policy_key, policy_value, value_type, description) VALUES
+    ('LOGIN_POLICY', 'DUPLICATE_MAX',     '1',         'INTEGER', '중복 로그인 최대 허용 수(1=단일 세션)'),
+    ('LOGIN_POLICY', 'DUPLICATE_ACTION',  'LOGOUT',    'ENUM',    '중복 로그인 처리(LOGOUT=기존 세션 종료|EXCEPTION=신규 차단)'),
+    ('LOGIN_POLICY', 'HIST_KEEP_DAYS',    '365',       'INTEGER', '로그인 이력 보관 일수'),
+    ('LOGIN_POLICY', 'ATTEMPT_LIMIT',     '0',         'INTEGER', '시간당 로그인 시도 제한(0=무제한)'),
+    ('LOGIN_POLICY', 'IP_RESTRICTION',    'false',     'BOOLEAN', 'IP 제한 활성화'),
+    ('LOGIN_POLICY', 'BLOCK_COUNTRIES',   '',          'MULTI_STRING', '접속 차단 국가(콤마 구분)'),
+    ('LOGIN_POLICY', 'ANOMALY_DETECT',    'false',     'BOOLEAN', '이상 로그인 탐지 활성화');
+
+-- ACCOUNT_POLICY (8개)
+INSERT INTO ids_iam_policy (policy_group, policy_key, policy_value, value_type, description) VALUES
+    ('ACCOUNT_POLICY', 'ACCT_LOCK_PERIOD',        '0',     'INTEGER', '계정 잠금 기간(일, 0=무기한)'),
+    ('ACCOUNT_POLICY', 'ACCT_LOCK_AUTO_RELEASE',  '0',     'INTEGER', '계정 잠금 자동 해제(분, 0=비활성)'),
+    ('ACCOUNT_POLICY', 'ACCT_LOCK_ADMIN_ONLY',    'false', 'BOOLEAN', '잠금 해제 관리자만 가능'),
+    ('ACCOUNT_POLICY', 'ACCT_STATUS_CHECK',       'true',  'BOOLEAN', '로그인 시 계정 상태 확인'),
+    ('ACCOUNT_POLICY', 'ACCT_AUTH_METHOD',        'PASSWORD', 'ENUM', '인증 방식(PASSWORD|OTP|FIDO)'),
+    ('ACCOUNT_POLICY', 'ACCT_OTP_ENABLED',        'false', 'BOOLEAN', 'OTP 인증 활성화'),
+    ('ACCOUNT_POLICY', 'ACCT_FIDO_ENABLED',       'false', 'BOOLEAN', 'FIDO 인증 활성화'),
+    ('ACCOUNT_POLICY', 'ACCT_DEVICE_AUTH',        'false', 'BOOLEAN', '디바이스 인증 활성화');
+
+-- AUDIT_POLICY (5개)
+INSERT INTO ids_iam_policy (policy_group, policy_key, policy_value, value_type, description) VALUES
+    ('AUDIT_POLICY', 'AUDIT_LOGIN_KEEP_DAYS',       '365', 'INTEGER', '로그인 이력 자동 삭제 주기(일)'),
+    ('AUDIT_POLICY', 'AUDIT_PWD_CHANGE_KEEP_DAYS',  '365', 'INTEGER', '비밀번호 변경 이력 자동 삭제 주기(일)'),
+    ('AUDIT_POLICY', 'AUDIT_PERM_CHANGE_KEEP_DAYS', '365', 'INTEGER', '권한 변경 이력 자동 삭제 주기(일)'),
+    ('AUDIT_POLICY', 'AUDIT_ROLE_CHANGE_KEEP_DAYS', '365', 'INTEGER', '역할 변경 이력 자동 삭제 주기(일)'),
+    ('AUDIT_POLICY', 'AUDIT_ACCT_KEEP_DAYS',        '365', 'INTEGER', '사용자 계정 이력 자동 삭제 주기(일)');
+
+-- SYSTEM_POLICY (9개)
+INSERT INTO ids_iam_policy (policy_group, policy_key, policy_value, value_type, description) VALUES
+    ('SYSTEM_POLICY', 'SESSION_TIMEOUT',      '30',     'INTEGER', '세션 타임아웃(분)'),
+    ('SYSTEM_POLICY', 'SESSION_MAX_TIME',     '480',    'INTEGER', '세션 최대 유지 시간(분)'),
+    ('SYSTEM_POLICY', 'API_RATE_LIMIT',       '0',      'INTEGER', 'API Rate Limit(초당 요청 수, 0=무제한)'),
+    ('SYSTEM_POLICY', 'FILE_UPLOAD_ENABLED',  'true',   'BOOLEAN', '파일 업로드 허용'),
+    ('SYSTEM_POLICY', 'FILE_ALLOWED_EXT',     'jpg,png,pdf,xlsx,docx', 'STRING', '허용 파일 확장자(콤마 구분)'),
+    ('SYSTEM_POLICY', 'FILE_MAX_SIZE',        '10',     'INTEGER', '파일 최대 크기(MB)'),
+    ('SYSTEM_POLICY', 'DOWNLOAD_ENABLED',     'true',   'BOOLEAN', '파일 다운로드 허용'),
+    ('SYSTEM_POLICY', 'CORS_POLICY',          'SAME_ORIGIN', 'ENUM', 'CORS 정책(SAME_ORIGIN|ALLOW_ALL|CUSTOM)'),
+    ('SYSTEM_POLICY', 'CSRF_ENABLED',              'true',  'BOOLEAN', 'CSRF 보호 활성화'),
+    ('SYSTEM_POLICY', 'IP_ACCESS_CONTROL_ENABLED',  'false', 'BOOLEAN', 'IP 접근 제어 활성화 (등록 IP만 허용)'),
+    ('SYSTEM_POLICY', 'MAC_ACCESS_CONTROL_ENABLED', 'false', 'BOOLEAN', 'MAC 접근 제어 활성화 (등록 MAC만 허용)');
 
 -- ============================================================
 --  ids_iam_admin 초기 데이터 (admin 계정 매핑)

@@ -101,6 +101,22 @@ public class PermSubjectController {
         return ResponseEntity.ok(result);
     }
 
+    // ── API: 사용자 권한 조회 ─────────────────────────────────────
+
+    @GetMapping("/user-perms")
+    @ResponseBody
+    public ResponseEntity<Object> userPerms(@RequestParam String userOid) {
+        try {
+            return ResponseEntity.ok(permSubjectService.getUserPermissions(userOid));
+        } catch (Exception e) {
+            log.error("사용자 권한 조회 오류", e);
+            Map<String, Object> err = new LinkedHashMap<>();
+            err.put("success", false);
+            err.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(err);
+        }
+    }
+
     // ── API: 유효 사용자 계산 ─────────────────────────────────────
 
     @GetMapping("/effective")

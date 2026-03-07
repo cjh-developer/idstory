@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{include/layout :: head('접근 제어')}"></head>
+<body>
+
+<header th:replace="~{include/header :: header}"></header>
+
+<div class="app-body">
+    <aside th:replace="~{include/sidebar :: sidebar}"></aside>
+
+    <main class="app-content">
+
+        <!-- 페이지 헤더 -->
+        <div class="page-header">
+            <div>
+                <div class="breadcrumb-area">
+                    <i class="fas fa-house"></i>
+                    <i class="fas fa-chevron-right"></i>
+                    <span>권한 관리</span>
+                    <i class="fas fa-chevron-right"></i>
+                    <span>접근 제어</span>
+                </div>
+                <h2 class="page-title">접근 제어</h2>
+                <p class="page-subtitle">IP 주소 및 MAC 주소 기반으로 시스템 접근을 제어합니다.</p>
+            </div>
+        </div>
+
+        <!-- 토스트 -->
+        <div id="toast-wrap">
+            <div id="toast-msg">
+                <i id="toast-icon" class="fas fa-circle-check"></i>
+                <span id="toast-text"></span>
+            </div>
+        </div>
+
+        <!-- 플래시 메시지 -->
+        <div th:if="${successMsg}" class="alert alert-success" style="margin-bottom:1rem;">
+            <i class="fas fa-circle-check"></i> <span th:text="${successMsg}"></span>
+        </div>
+        <div th:if="${errorMsg}" class="alert alert-danger" style="margin-bottom:1rem;">
+            <i class="fas fa-circle-exclamation"></i> <span th:text="${errorMsg}"></span>
+        </div>
+
+        <!-- 현재 접속 정보 배너 -->
+        <div class="ac-session-banner">
+            <div class="session-item">
+                <div class="session-icon ip-icon">
+                    <i class="fas fa-wifi"></i>
+                </div>
+                <div>
+                    <div class="session-label">현재 접속 IP</div>
+                    <div class="session-val" th:text="${clientIp ?: '알 수 없음'}">-</div>
+                </div>
+            </div>
+            <div class="session-divider"></div>
+            <div class="session-item">
+                <div class="session-icon mac-icon">
+                    <i class="fas fa-computer"></i>
+                </div>
+                <div>
+                    <div class="session-label">X-Device-MAC 헤더</div>
+                    <div class="session-val" th:text="${clientMac ?: '(헤더 없음)'}">-</div>
+                </div>
+            </div>
+            <div class="session-tip">
+                <i class="fas fa-triangle-exclamation"></i>
+                제한 활성화 전에 현재 IP·MAC이 목록에 등록되어 있는지 확인하세요.
+            </div>
+        </div>
+
+        <!-- 2열 그리드 -->
+        <div class="ac-grid">
+
+            <!-- ══════════════════════════════════════════
+                 IP 접근 제어 카드
+            ══════════════════════════════════════════ -->
+            <div class="card ac-card">
+
+                <!-- 카드 헤더 -->
+                <div class="ac-card-header">
+                    <div class="ac-card-title-area">
+                        <div class="ac-type-badge ip-badge">
+                            <i class="fas fa-network-wired"></i>
+                        </div>
+                        <div>
+                            <div class="ac-card-name">IP 접근 제어</div>
+                            <div class="ac-card-sub">IPv4 · IPv6 · CIDR 범위 지원</div>
+                        </div>
+                    </div>
+                    <form th:action="@{/auth/access-control/ip/toggle}" method="post" class="ac-toggle-form">
+                        <div class="toggle-status-area">
+                            <span class="toggle-status ts-on" th:if="${ipEnabled}">
+                                <i class="fas fa-circle"></i> 활성화
+                            </span>
+                            <span class="toggle-status ts-off" th:unless="${ipEnabled}">
+                                <i class="fas fa-circle"></i> 비활성화
+                            </span>
+                            <label class="ac-toggle">
+                                <input type="checkbox" th:checked="${ipEnabled}"
+                                       onchange="submitToggle(this,'ip')"/>
+                                <span class="ac-slider"></span>
+                            </label>
+                        </div>
+                        <input type="hidden" name="enabled" id="ip-toggle-val" th:value="${ipEnabled}"/>
+                    </form>
+                </div>
+
+                <!-- 상태 표시 바 -->
+                <div th:if="${ipEnabled and not #lists.isEmpty(ipRules)}" class="ac-status-bar status-ok">
+                    <i class="fas fa-shield-halved"></i>
+                    등록된 <strong th:text="${#lists.size(ipRules)}">0</strong>개 IP/CIDR에서만 접근이 허용됩니다.
+                </div>
+                <div th:if="${ipEnabled and #lists.isEmpty(ipRules)}" class="ac-status-bar status-warn">
+                    <i class="fas fa-triangle-exclamation"></i>
+                    활성화 상태이지만 등록된 IP가 없어 현재 모든 IP가 허용됩니다.
+                </div>
+                <div th:unless="${ipEnabled}" class="ac-status-bar status-off">
+                    <i class="fas fa-circle-pause"></i>
+                    IP 접근 제어가 비활성화 상태입니다.
+                </div>
+
+                <div class="card-body">
+
+                    <!-- 규칙 추가 폼 -->
+                    <div class="ac-form-box">
+                        <div class="ac-form-heading">
+                            <i class="fas fa-plus-circle"></i> 새 IP 규칙 추가
+                        </div>
+
+                        <!-- IP 버전 선택 -->
+                        <div class="fg">
+                            <label class="fg-label">IP 버전</label>
+                            <div class="seg-ctrl" id="ip-version-ctrl">
+                                <button type="button" class="seg-btn seg-active"
+                                        data-val="IPV4"
+                                        onclick="setIpVersion('IPV4',this)">
+                                    IPv4
+                                </button>
+                                <button type="button" class="seg-btn"
+                                        data-val="IPV6"
+                                        onclick="setIpVersion('IPV6',this)">
+                                    IPv6
+                                </button>
+                            </div>
+                            <input type="hidden" id="ip-version" value="IPV4"/>
+                        </div>
+
+                        <!-- IP 주소 입력 -->
+                        <div class="fg">
+                            <label class="fg-label">IP 주소 / CIDR</label>
+                            <div class="fg-wrap">
+                                <span class="fg-icon"><i class="fas fa-globe"></i></span>
+                                <input type="text" id="ip-value" class="fg-input"
+                                       placeholder="192.168.1.0/24"/>
+                            </div>
+                            <p class="fg-hint">단일 IP 또는 CIDR(192.168.1.0/24) 형식으로 입력하세요.</p>
+                        </div>
+
+                        <!-- 설명 -->
+                        <div class="fg">
+                            <label class="fg-label">
+                                설명
+                                <span class="fg-opt">선택사항</span>
+                            </label>
+                            <div class="fg-wrap">
+                                <span class="fg-icon"><i class="fas fa-tag"></i></span>
+                                <input type="text" id="ip-desc" class="fg-input"
+                                       placeholder="예: 사무실 네트워크"/>
+                            </div>
+                        </div>
+
+                        <div class="fg-foot">
+                            <button type="button" class="ac-add-btn ip-add-btn"
+                                    onclick="addRule('IP')">
+                                <i class="fas fa-plus"></i> IP 규칙 추가
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 등록된 IP 목록 -->
+                    <div class="ac-list-header">
+                        <span class="ac-list-title">등록된 IP 규칙</span>
+                    </div>
+                    <table class="ac-table">
+                        <thead>
+                        <tr>
+                            <th style="width:52px;">상태</th>
+                            <th style="width:58px;">유형</th>
+                            <th>IP / CIDR</th>
+                            <th>설명</th>
+                            <th style="width:72px;text-align:center;">관리</th>
+                        </tr>
+                        </thead>
+                        <tbody id="ip-table-body">
+                        <tr th:if="${#lists.isEmpty(ipRules)}" id="ip-empty-row">
+                            <td colspan="5" class="ac-empty">
+                                <i class="fas fa-inbox"></i>
+                                <span>등록된 IP 규칙이 없습니다.</span>
+                            </td>
+                        </tr>
+                        <tr th:each="rule : ${ipRules}"
+                            th:id="'ip-row-' + ${rule.ruleOid}">
+                            <td>
+                                <span th:if="${rule.useYn == 'Y'}"   class="ac-dot dot-on">활성</span>
+                                <span th:unless="${rule.useYn == 'Y'}" class="ac-dot dot-off">비활성</span>
+                            </td>
+                            <td>
+                                <span class="ac-ver-badge"
+                                      th:text="${rule.ipVersion == 'IPV6'} ? 'IPv6' : 'IPv4'">IPv4</span>
+                            </td>
+                            <td class="ac-mono" th:text="${rule.ruleValue}"></td>
+                            <td class="ac-muted" th:text="${rule.description ?: '-'}"></td>
+                            <td class="ac-act-cell">
+                                <button class="act-btn"
+                                        th:title="${rule.useYn == 'Y'} ? '비활성화' : '활성화'"
+                                        th:onclick="'toggleRule(\'' + ${rule.ruleOid} + '\',this)'">
+                                    <i th:class="${rule.useYn == 'Y'} ? 'fas fa-toggle-on act-on' : 'fas fa-toggle-off act-off'"></i>
+                                </button>
+                                <button class="act-btn act-del"
+                                        th:onclick="'deleteRule(\'' + ${rule.ruleOid} + '\',\'' + ${rule.ruleValue} + '\')'">
+                                    <i class="fas fa-trash-can"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ══════════════════════════════════════════
+                 MAC 접근 제어 카드
+            ══════════════════════════════════════════ -->
+            <div class="card ac-card">
+
+                <!-- 카드 헤더 -->
+                <div class="ac-card-header">
+                    <div class="ac-card-title-area">
+                        <div class="ac-type-badge mac-badge">
+                            <i class="fas fa-computer"></i>
+                        </div>
+                        <div>
+                            <div class="ac-card-name">MAC 접근 제어</div>
+                            <div class="ac-card-sub">등록된 디바이스만 접근 허용</div>
+                        </div>
+                    </div>
+                    <form th:action="@{/auth/access-control/mac/toggle}" method="post" class="ac-toggle-form">
+                        <div class="toggle-status-area">
+                            <span class="toggle-status ts-on" th:if="${macEnabled}">
+                                <i class="fas fa-circle"></i> 활성화
+                            </span>
+                            <span class="toggle-status ts-off" th:unless="${macEnabled}">
+                                <i class="fas fa-circle"></i> 비활성화
+                            </span>
+                            <label class="ac-toggle">
+                                <input type="checkbox" th:checked="${macEnabled}"
+                                       onchange="submitToggle(this,'mac')"/>
+                                <span class="ac-slider mac-slider"></span>
+                            </label>
+                        </div>
+                        <input type="hidden" name="enabled" id="mac-toggle-val" th:value="${macEnabled}"/>
+                    </form>
+                </div>
+
+                <!-- 상태 표시 바 -->
+                <div th:if="${macEnabled and not #lists.isEmpty(macRules)}" class="ac-status-bar status-ok">
+                    <i class="fas fa-shield-halved"></i>
+                    등록된 <strong th:text="${#lists.size(macRules)}">0</strong>개 디바이스에서만 접근이 허용됩니다.
+                </div>
+                <div th:if="${macEnabled and #lists.isEmpty(macRules)}" class="ac-status-bar status-warn">
+                    <i class="fas fa-triangle-exclamation"></i>
+                    활성화 상태이지만 등록된 MAC이 없어 현재 모든 디바이스가 허용됩니다.
+                </div>
+                <div th:unless="${macEnabled}" class="ac-status-bar status-off">
+                    <i class="fas fa-circle-pause"></i>
+                    MAC 접근 제어가 비활성화 상태입니다.
+                </div>
+
+                <div class="card-body">
+
+                    <!-- MAC 헤더 안내 -->
+                    <div class="ac-notice-box">
+                        <i class="fas fa-circle-info"></i>
+                        <span>
+                            MAC 주소는 HTTP 요청의 <code>X-Device-MAC</code> 헤더로 전달됩니다.
+                            클라이언트 에이전트 또는 VPN·프록시가 해당 헤더를 주입해야 합니다.
+                        </span>
+                    </div>
+
+                    <!-- 규칙 추가 폼 -->
+                    <div class="ac-form-box">
+                        <div class="ac-form-heading">
+                            <i class="fas fa-plus-circle"></i> 새 디바이스 등록
+                        </div>
+
+                        <!-- MAC 주소 입력 -->
+                        <div class="fg">
+                            <label class="fg-label">MAC 주소</label>
+                            <div class="fg-wrap">
+                                <span class="fg-icon"><i class="fas fa-microchip"></i></span>
+                                <input type="text" id="mac-value"
+                                       class="fg-input fg-mono"
+                                       placeholder="AA:BB:CC:DD:EE:FF"
+                                       maxlength="17"
+                                       oninput="formatMac(this)"/>
+                            </div>
+                            <p class="fg-hint">입력 시 <code>AA:BB:CC:DD:EE:FF</code> 형식으로 자동 변환됩니다.</p>
+                        </div>
+
+                        <!-- 디바이스 설명 -->
+                        <div class="fg">
+                            <label class="fg-label">
+                                디바이스 설명
+                                <span class="fg-opt">선택사항</span>
+                            </label>
+                            <div class="fg-wrap">
+                                <span class="fg-icon"><i class="fas fa-laptop"></i></span>
+                                <input type="text" id="mac-desc" class="fg-input"
+                                       placeholder="예: 홍길동 노트북"/>
+                            </div>
+                        </div>
+
+                        <div class="fg-foot">
+                            <button type="button" class="ac-add-btn mac-add-btn"
+                                    onclick="addRule('MAC')">
+                                <i class="fas fa-plus"></i> 디바이스 등록
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 등록된 MAC 목록 -->
+                    <div class="ac-list-header">
+                        <span class="ac-list-title">등록된 디바이스</span>
+                    </div>
+                    <table class="ac-table">
+                        <thead>
+                        <tr>
+                            <th style="width:52px;">상태</th>
+                            <th>MAC 주소</th>
+                            <th>디바이스 설명</th>
+                            <th style="width:72px;text-align:center;">관리</th>
+                        </tr>
+                        </thead>
+                        <tbody id="mac-table-body">
+                        <tr th:if="${#lists.isEmpty(macRules)}" id="mac-empty-row">
+                            <td colspan="4" class="ac-empty">
+                                <i class="fas fa-inbox"></i>
+                                <span>등록된 디바이스가 없습니다.</span>
+                            </td>
+                        </tr>
+                        <tr th:each="rule : ${macRules}"
+                            th:id="'mac-row-' + ${rule.ruleOid}">
+                            <td>
+                                <span th:if="${rule.useYn == 'Y'}"   class="ac-dot dot-on">활성</span>
+                                <span th:unless="${rule.useYn == 'Y'}" class="ac-dot dot-off">비활성</span>
+                            </td>
+                            <td class="ac-mono" th:text="${rule.ruleValue}"></td>
+                            <td class="ac-muted" th:text="${rule.description ?: '-'}"></td>
+                            <td class="ac-act-cell">
+                                <button class="act-btn"
+                                        th:title="${rule.useYn == 'Y'} ? '비활성화' : '활성화'"
+                                        th:onclick="'toggleRule(\'' + ${rule.ruleOid} + '\',this)'">
+                                    <i th:class="${rule.useYn == 'Y'} ? 'fas fa-toggle-on act-on' : 'fas fa-toggle-off act-off'"></i>
+                                </button>
+                                <button class="act-btn act-del"
+                                        th:onclick="'deleteRule(\'' + ${rule.ruleOid} + '\',\'' + ${rule.ruleValue} + '\')'">
+                                    <i class="fas fa-trash-can"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div><!-- /ac-grid -->
+
+        <!-- ══════════════════════════════════════════
+             차단 이력
+        ══════════════════════════════════════════ -->
+        <div class="card" style="margin-top:1.4rem;">
+            <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+                <span class="card-title">
+                    <i class="fas fa-ban" style="color:#dc2626;"></i> 차단 이력
+                    <span style="font-size:.75rem;font-weight:400;color:#94a3b8;margin-left:.4rem;">최근 50건</span>
+                </span>
+                <button class="hist-refresh-btn" onclick="loadHistory()">
+                    <i class="fas fa-rotate-right"></i> 새로고침
+                </button>
+            </div>
+            <div class="card-body" style="padding:0;">
+                <table class="ac-table">
+                    <thead>
+                    <tr>
+                        <th style="width:68px;">유형</th>
+                        <th>차단된 IP / MAC</th>
+                        <th>요청 URI</th>
+                        <th style="width:140px;">차단 일시</th>
+                    </tr>
+                    </thead>
+                    <tbody id="hist-table-body">
+                    <tr th:if="${#lists.isEmpty(historyList)}">
+                        <td colspan="4" class="ac-empty">
+                            <i class="fas fa-circle-check" style="color:#4ade80;"></i>
+                            <span>차단 이력이 없습니다.</span>
+                        </td>
+                    </tr>
+                    <tr th:each="h : ${historyList}">
+                        <td>
+                            <span th:if="${h.controlType == 'IP'}"
+                                  class="hist-type-badge badge-ip">IP</span>
+                            <span th:unless="${h.controlType == 'IP'}"
+                                  class="hist-type-badge badge-mac">MAC</span>
+                        </td>
+                        <td class="ac-mono" th:text="${h.requestVal}"></td>
+                        <td class="ac-muted" th:text="${h.requestUri ?: '-'}"></td>
+                        <td class="ac-muted"
+                            th:text="${#temporals.format(h.blockedAt,'yyyy-MM-dd HH:mm')}"></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<footer th:replace="~{include/footer :: footer}"></footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/common.js}"></script>
+
+<style>
+/* =====================================================
+   접근 제어 전용 스타일
+   ===================================================== */
+
+/* ── 토스트 ─────────────────────────────────────────── */
+#toast-wrap {
+    position: fixed; top: 1.2rem; right: 1.4rem;
+    z-index: 9999; min-width: 280px; display: none;
+}
+#toast-msg {
+    background: #1e293b; color: #fff;
+    padding: .85rem 1.2rem; border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.2);
+    font-size: .9rem; display: flex; align-items: center; gap: .7rem;
+}
+
+/* ── 세션 배너 ──────────────────────────────────────── */
+.ac-session-banner {
+    display: flex;
+    align-items: center;
+    gap: 1.4rem;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: .85rem 1.4rem;
+    margin-bottom: 1.2rem;
+    flex-wrap: wrap;
+}
+.session-item {
+    display: flex; align-items: center; gap: .75rem;
+}
+.session-icon {
+    width: 38px; height: 38px;
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .92rem; flex-shrink: 0;
+}
+.session-icon.ip-icon  { background: #eff6ff; color: #2563eb; }
+.session-icon.mac-icon { background: #f5f3ff; color: #7c3aed; }
+.session-label { font-size: .73rem; color: #94a3b8; margin-bottom: .08rem; }
+.session-val {
+    font-family: 'Courier New', monospace;
+    font-size: .87rem; font-weight: 700; color: #1e293b;
+}
+.session-divider { width: 1px; height: 34px; background: #e2e8f0; flex-shrink: 0; }
+.session-tip {
+    margin-left: auto;
+    display: flex; align-items: center; gap: .45rem;
+    font-size: .78rem; color: #92400e;
+    background: #fffbeb; border: 1px solid #fde68a;
+    border-radius: 8px; padding: .4rem .85rem;
+}
+
+/* ── 그리드 ─────────────────────────────────────────── */
+.ac-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.2rem;
+    align-items: stretch;
+}
+
+/* ── 카드 ───────────────────────────────────────────── */
+.ac-card { overflow: hidden; padding: 0; }
+.ac-card .card-body { padding: 1.2rem 1.3rem; }
+
+/* ── 카드 헤더 ──────────────────────────────────────── */
+.ac-card-header {
+    display: flex; align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.3rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+.ac-card-title-area {
+    display: flex; align-items: center; gap: .9rem;
+}
+.ac-type-badge {
+    width: 44px; height: 44px;
+    border-radius: 11px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; flex-shrink: 0;
+}
+.ip-badge  { background: #eff6ff; color: #2563eb; }
+.mac-badge { background: #f5f3ff; color: #7c3aed; }
+.ac-card-name { font-size: .97rem; font-weight: 700; color: #1e293b; }
+.ac-card-sub  { font-size: .75rem; color: #94a3b8; margin-top: .1rem; }
+
+/* ── 토글 스위치 ────────────────────────────────────── */
+.ac-toggle-form { display: flex; align-items: center; }
+.toggle-status-area { display: flex; align-items: center; gap: .65rem; }
+.toggle-status {
+    font-size: .77rem; font-weight: 600;
+    display: flex; align-items: center; gap: .3rem;
+}
+.ts-on  { color: #16a34a; }
+.ts-off { color: #b0bec5; }
+.ts-on  i { font-size: .55rem; }
+.ts-off i { font-size: .55rem; }
+
+.ac-toggle { position: relative; display: inline-block; width: 46px; height: 26px; }
+.ac-toggle input { opacity: 0; width: 0; height: 0; }
+.ac-slider {
+    position: absolute; cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #d1d5db; border-radius: 26px; transition: .2s;
+}
+.ac-slider:before {
+    content: ''; position: absolute;
+    height: 20px; width: 20px; left: 3px; bottom: 3px;
+    background: #fff; border-radius: 50%; transition: .2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,.2);
+}
+.ac-toggle input:checked + .ac-slider         { background: #2563eb; }
+.ac-toggle input:checked + .ac-slider.mac-slider { background: #7c3aed; }
+.ac-toggle input:checked + .ac-slider:before  { transform: translateX(20px); }
+
+/* ── 상태 바 ────────────────────────────────────────── */
+.ac-status-bar {
+    padding: .55rem 1.3rem;
+    font-size: .81rem; font-weight: 500;
+    display: flex; align-items: center; gap: .5rem;
+}
+.status-ok   { background: #f0fdf4; color: #15803d; border-bottom: 1px solid #d1fae5; }
+.status-warn { background: #fff7ed; color: #c2410c; border-bottom: 1px solid #fed7aa; }
+.status-off  { background: #f8fafc; color: #94a3b8;  border-bottom: 1px solid #f1f5f9; }
+
+/* ── 안내 박스 ──────────────────────────────────────── */
+.ac-notice-box {
+    display: flex; gap: .65rem; align-items: flex-start;
+    background: #eff6ff; border: 1px solid #bfdbfe;
+    border-radius: 9px; padding: .7rem 1rem;
+    font-size: .81rem; color: #1e40af;
+    margin-bottom: 1rem; line-height: 1.55;
+}
+.ac-notice-box > i { margin-top: .15rem; flex-shrink: 0; }
+.ac-notice-box code {
+    background: #dbeafe; padding: .05rem .3rem;
+    border-radius: 4px; font-size: .79rem; font-family: monospace;
+}
+
+/* ── 규칙 추가 폼 박스 ──────────────────────────────── */
+.ac-form-box {
+    background: #f8fafc;
+    border: 1px solid #e8edf2;
+    border-radius: 10px;
+    padding: 1rem 1.1rem 1rem;
+    margin-bottom: 1.3rem;
+}
+.ac-form-heading {
+    font-size: .8rem; font-weight: 700;
+    color: #64748b;
+    margin-bottom: .9rem;
+    display: flex; align-items: center; gap: .4rem;
+}
+
+/* ── 폼 그룹 ────────────────────────────────────────── */
+.fg { margin-bottom: .75rem; }
+.fg:last-of-type { margin-bottom: .2rem; }
+.fg-label {
+    display: block; font-size: .77rem;
+    font-weight: 600; color: #475569; margin-bottom: .35rem;
+}
+.fg-opt {
+    font-weight: 400; font-size: .71rem;
+    color: #b0bec5; margin-left: .3rem;
+}
+.fg-wrap { position: relative; }
+.fg-icon {
+    position: absolute; left: .75rem; top: 50%;
+    transform: translateY(-50%);
+    color: #b0bec5; font-size: .8rem; pointer-events: none;
+}
+.fg-input {
+    width: 100%; box-sizing: border-box;
+    padding: .52rem .75rem .52rem 2.1rem;
+    border: 1px solid #d1d5db; border-radius: 7px;
+    font-size: .87rem; color: #1e293b; background: #fff;
+    transition: border-color .15s, box-shadow .15s;
+    outline: none;
+}
+.fg-input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+}
+.fg-input::placeholder { color: #c4cdd5; }
+.fg-mono { font-family: 'Courier New', monospace; letter-spacing: .04em; }
+.fg-hint { font-size: .73rem; color: #b0bec5; margin-top: .28rem; line-height: 1.5; }
+.fg-hint code { font-family: monospace; font-size: .73rem; }
+
+/* ── 세그먼트 컨트롤 (IP 버전) ──────────────────────── */
+.seg-ctrl {
+    display: inline-flex;
+    background: #e8edf2;
+    border-radius: 8px;
+    padding: 3px; gap: 2px;
+}
+.seg-btn {
+    padding: .38rem 1.15rem;
+    border: none; border-radius: 6px;
+    font-size: .82rem; font-weight: 600;
+    color: #64748b; background: transparent;
+    cursor: pointer; transition: all .15s;
+}
+.seg-btn.seg-active {
+    background: #fff; color: #2563eb;
+    box-shadow: 0 1px 4px rgba(0,0,0,.1);
+}
+.seg-btn:hover:not(.seg-active) { background: rgba(255,255,255,.6); }
+
+/* ── 추가 버튼 ──────────────────────────────────────── */
+.fg-foot { display: flex; justify-content: flex-end; margin-top: .8rem; }
+.ac-add-btn {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .52rem 1.15rem;
+    border: none; border-radius: 7px;
+    font-size: .84rem; font-weight: 600;
+    cursor: pointer; transition: background .15s; color: #fff;
+}
+.ip-add-btn  { background: #2563eb; }
+.ip-add-btn:hover  { background: #1d4ed8; }
+.mac-add-btn { background: #7c3aed; }
+.mac-add-btn:hover { background: #6d28d9; }
+
+/* ── 목록 헤더 ──────────────────────────────────────── */
+.ac-list-header { margin-bottom: .55rem; }
+.ac-list-title {
+    font-size: .78rem; font-weight: 700; color: #64748b;
+    display: inline-flex; align-items: center; gap: .45rem;
+}
+.ac-list-title::before {
+    content: '';
+    display: inline-block; width: 3px; height: 12px;
+    background: #2563eb; border-radius: 2px;
+}
+
+/* ── 테이블 ─────────────────────────────────────────── */
+.ac-table { width: 100%; border-collapse: collapse; }
+.ac-table thead th {
+    background: #f8fafc;
+    font-size: .73rem; font-weight: 700;
+    color: #94a3b8; letter-spacing: .04em; text-transform: uppercase;
+    padding: .55rem .85rem;
+    border-top: 1px solid #f1f5f9;
+    border-bottom: 1px solid #e8edf2;
+    white-space: nowrap;
+}
+.ac-table tbody td {
+    padding: .62rem .85rem;
+    border-bottom: 1px solid #f4f6f9;
+    vertical-align: middle;
+}
+.ac-table tbody tr:last-child td { border-bottom: none; }
+.ac-table tbody tr:hover td { background: #fbfcfd; }
+
+.ac-mono  { font-family: 'Courier New', monospace; font-size: .85rem; font-weight: 600; color: #1e293b; }
+.ac-muted { font-size: .82rem; color: #94a3b8; }
+.ac-act-cell { display: flex; align-items: center; gap: .28rem; justify-content: center; }
+.ac-empty {
+    text-align: center; padding: 2rem !important;
+    display: flex; flex-direction: column;
+    align-items: center; gap: .45rem;
+    color: #c4cdd5; font-size: .83rem;
+}
+.ac-empty i { font-size: 1.4rem; }
+
+/* ── 상태 도트 배지 ─────────────────────────────────── */
+.ac-dot {
+    display: inline-flex; align-items: center; gap: .3rem;
+    font-size: .71rem; font-weight: 700;
+    padding: .18rem .55rem; border-radius: 20px;
+}
+.ac-dot::before { content: ''; width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.dot-on  { background: #dcfce7; color: #15803d; }
+.dot-on::before  { background: #22c55e; }
+.dot-off { background: #f1f5f9; color: #94a3b8; }
+.dot-off::before { background: #cbd5e1; }
+
+/* ── IP 버전 배지 ───────────────────────────────────── */
+.ac-ver-badge {
+    display: inline-block;
+    padding: .14rem .5rem; border-radius: 5px;
+    font-size: .71rem; font-weight: 700;
+    background: #e0f2fe; color: #0369a1;
+}
+
+/* ── 이력 타입 배지 ─────────────────────────────────── */
+.hist-type-badge {
+    display: inline-block;
+    padding: .15rem .55rem; border-radius: 5px;
+    font-size: .71rem; font-weight: 700;
+}
+.badge-ip  { background: #dbeafe; color: #1e40af; }
+.badge-mac { background: #ede9fe; color: #5b21b6; }
+
+/* ── 액션 버튼 ──────────────────────────────────────── */
+.act-btn {
+    background: none; border: 1px solid #e8edf2;
+    border-radius: 6px; padding: .26rem .48rem;
+    cursor: pointer; font-size: .9rem;
+    color: #b0bec5; transition: all .15s; line-height: 1;
+}
+.act-btn:hover { background: #f1f5f9; border-color: #d1d5db; color: #475569; }
+.act-del { border-color: #fecaca; color: #fca5a5; }
+.act-del:hover { background: #fef2f2; color: #dc2626; border-color: #fca5a5; }
+.act-on  { color: #22c55e; }
+.act-off { color: #d1d5db; }
+
+/* ── 이력 새로고침 버튼 ─────────────────────────────── */
+.hist-refresh-btn {
+    display: inline-flex; align-items: center; gap: .4rem;
+    background: none; border: 1px solid #e2e8f0;
+    border-radius: 7px; padding: .35rem .8rem;
+    font-size: .8rem; font-weight: 600; color: #64748b;
+    cursor: pointer; transition: all .15s;
+}
+.hist-refresh-btn:hover { background: #f8fafc; border-color: #d1d5db; color: #374151; }
+</style>
+
+<script th:inline="javascript">
+const CSRF_HEADER = 'X-CSRF-TOKEN';
+const CSRF_TOKEN  = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
+const csrfHeaders = CSRF_TOKEN ? { [CSRF_HEADER]: CSRF_TOKEN } : {};
+
+/* ── IP 버전 세그먼트 선택 ────────────────────────── */
+function setIpVersion(val, btn) {
+    document.getElementById('ip-version').value = val;
+    document.querySelectorAll('#ip-version-ctrl .seg-btn').forEach(b => b.classList.remove('seg-active'));
+    btn.classList.add('seg-active');
+    const input = document.getElementById('ip-value');
+    input.placeholder = val === 'IPV4'
+        ? '예: 192.168.1.0/24  또는  10.0.0.1'
+        : '예: ::1  또는  2001:db8::/32';
+    input.focus();
+}
+
+/* ── 토글 폼 자동 제출 ────────────────────────────── */
+function submitToggle(checkbox, type) {
+    const newVal = checkbox.checked;
+    const label  = type === 'ip' ? 'IP' : 'MAC';
+    const warn   = newVal
+        ? '\n\n주의: 등록된 항목이 없으면 모두 허용됩니다.\n현재 접속 ' + label + '를 먼저 등록하는 것을 권장합니다.'
+        : '';
+    if (!confirm(label + ' 접근 제어를 ' + (newVal ? '활성화' : '비활성화') + '하시겠습니까?' + warn)) {
+        checkbox.checked = !newVal;
+        return;
+    }
+    document.getElementById(type + '-toggle-val').value = newVal;
+    checkbox.closest('form').submit();
+}
+
+/* ── 규칙 추가 (AJAX) ─────────────────────────────── */
+function addRule(type) {
+    let ruleValue, description, ipVersion = null;
+    if (type === 'IP') {
+        ipVersion   = document.getElementById('ip-version').value;
+        ruleValue   = document.getElementById('ip-value').value.trim();
+        description = document.getElementById('ip-desc').value.trim();
+        if (!ruleValue) { showToast('IP 주소를 입력해주세요.', 'error'); return; }
+    } else {
+        ruleValue   = document.getElementById('mac-value').value.trim();
+        description = document.getElementById('mac-desc').value.trim();
+        if (!ruleValue) { showToast('MAC 주소를 입력해주세요.', 'error'); return; }
+    }
+
+    const params = new URLSearchParams();
+    params.append('controlType', type);
+    if (ipVersion) params.append('ipVersion', ipVersion);
+    params.append('ruleValue',   ruleValue);
+    params.append('description', description);
+
+    fetch('/auth/access-control/rules/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', ...csrfHeaders },
+        body: params.toString()
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showToast('등록되었습니다: ' + data.ruleValue, 'success');
+            appendRow(type, data);
+            if (type === 'IP') {
+                document.getElementById('ip-value').value = '';
+                document.getElementById('ip-desc').value  = '';
+            } else {
+                document.getElementById('mac-value').value = '';
+                document.getElementById('mac-desc').value  = '';
+            }
+        } else {
+            showToast(data.message || '등록 실패', 'error');
+        }
+    })
+    .catch(() => showToast('요청 중 오류가 발생했습니다.', 'error'));
+}
+
+/* ── 행 동적 추가 ─────────────────────────────────── */
+function appendRow(type, data) {
+    const tbody = document.getElementById(type === 'IP' ? 'ip-table-body' : 'mac-table-body');
+    const empty = document.getElementById(type === 'IP' ? 'ip-empty-row' : 'mac-empty-row');
+    if (empty) empty.remove();
+
+    const oid   = data.ruleOid;
+    const val   = escHtml(data.ruleValue);
+    const desc  = escHtml(data.description) || '-';
+    const actBtns = `
+        <button class="act-btn" onclick="toggleRule('${oid}',this)">
+            <i class="fas fa-toggle-on act-on"></i>
+        </button>
+        <button class="act-btn act-del" onclick="deleteRule('${oid}','${val}')">
+            <i class="fas fa-trash-can"></i>
+        </button>`;
+
+    const tr = document.createElement('tr');
+    tr.id = (type === 'IP' ? 'ip-row-' : 'mac-row-') + oid;
+
+    if (type === 'IP') {
+        const verLabel = data.ipVersion === 'IPV6' ? 'IPv6' : 'IPv4';
+        tr.innerHTML = `
+            <td><span class="ac-dot dot-on">활성</span></td>
+            <td><span class="ac-ver-badge">${verLabel}</span></td>
+            <td class="ac-mono">${val}</td>
+            <td class="ac-muted">${desc}</td>
+            <td class="ac-act-cell">${actBtns}</td>`;
+    } else {
+        tr.innerHTML = `
+            <td><span class="ac-dot dot-on">활성</span></td>
+            <td class="ac-mono">${val}</td>
+            <td class="ac-muted">${desc}</td>
+            <td class="ac-act-cell">${actBtns}</td>`;
+    }
+    tbody.appendChild(tr);
+}
+
+/* ── 활성/비활성 토글 ─────────────────────────────── */
+function toggleRule(ruleOid, btn) {
+    fetch('/auth/access-control/rules/' + ruleOid + '/toggle', {
+        method: 'POST', headers: csrfHeaders
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const icon    = btn.querySelector('i');
+            const row     = btn.closest('tr');
+            const badge   = row.querySelector('.ac-dot');
+            const isNowOn = icon.classList.contains('act-off') || icon.classList.contains('fa-toggle-off');
+            icon.className   = isNowOn ? 'fas fa-toggle-on act-on' : 'fas fa-toggle-off act-off';
+            badge.textContent = isNowOn ? '활성' : '비활성';
+            badge.className   = isNowOn ? 'ac-dot dot-on' : 'ac-dot dot-off';
+            showToast(isNowOn ? '활성화되었습니다.' : '비활성화되었습니다.', 'success');
+        } else {
+            showToast(data.message || '변경 실패', 'error');
+        }
+    });
+}
+
+/* ── 삭제 ─────────────────────────────────────────── */
+function deleteRule(ruleOid, displayVal) {
+    if (!confirm('"' + displayVal + '"을(를) 삭제하시겠습니까?')) return;
+    fetch('/auth/access-control/rules/' + ruleOid + '/delete', {
+        method: 'POST', headers: csrfHeaders
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const row = document.getElementById('ip-row-'  + ruleOid)
+                     || document.getElementById('mac-row-' + ruleOid);
+            if (row) row.remove();
+            showToast('삭제되었습니다.', 'success');
+        } else {
+            showToast(data.message || '삭제 실패', 'error');
+        }
+    });
+}
+
+/* ── 차단 이력 새로고침 ───────────────────────────── */
+function loadHistory() {
+    fetch('/auth/access-control/api/history')
+    .then(r => r.json())
+    .then(list => {
+        const tbody = document.getElementById('hist-table-body');
+        if (!list.length) {
+            tbody.innerHTML = `<tr><td colspan="4" class="ac-empty">
+                <i class="fas fa-circle-check" style="color:#4ade80;"></i>
+                <span>차단 이력이 없습니다.</span></td></tr>`;
+            return;
+        }
+        tbody.innerHTML = list.map(h => {
+            const typeBadge = h.controlType === 'IP'
+                ? '<span class="hist-type-badge badge-ip">IP</span>'
+                : '<span class="hist-type-badge badge-mac">MAC</span>';
+            return `<tr>
+                <td>${typeBadge}</td>
+                <td class="ac-mono">${escHtml(h.requestVal)}</td>
+                <td class="ac-muted">${escHtml(h.requestUri || '-')}</td>
+                <td class="ac-muted">${h.blockedAt}</td>
+            </tr>`;
+        }).join('');
+        showToast('이력을 새로고침했습니다.', 'success');
+    })
+    .catch(() => showToast('이력 조회 중 오류가 발생했습니다.', 'error'));
+}
+
+/* ── MAC 자동 포맷 ────────────────────────────────── */
+function formatMac(input) {
+    let val = input.value.replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
+    val = val.substring(0, 12);
+    input.value = val.match(/.{1,2}/g)?.join(':') || val;
+}
+
+/* ── 토스트 ───────────────────────────────────────── */
+function showToast(msg, type) {
+    const wrap = document.getElementById('toast-wrap');
+    const icon = document.getElementById('toast-icon');
+    const text = document.getElementById('toast-text');
+    icon.className = type === 'success'
+        ? 'fas fa-circle-check' : 'fas fa-circle-exclamation';
+    icon.style.color = type === 'success' ? '#4ade80' : '#f87171';
+    text.textContent = msg;
+    wrap.style.display = 'block';
+    clearTimeout(wrap._timer);
+    wrap._timer = setTimeout(() => { wrap.style.display = 'none'; }, 3500);
+}
+
+function escHtml(s) {
+    if (!s) return '';
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+            .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+</script>
+
+</body>
+</html>

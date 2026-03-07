@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -31,6 +32,45 @@ public interface SysUserRepository extends JpaRepository<SysUser, String> {
 
     /** 잠금 상태 계정 수 */
     long countByLockYn(String lockYn);
+
+    /** 소프트 삭제 제외 + 잠금여부별 사용자 수 */
+    long countByDeletedAtIsNullAndLockYn(String lockYn);
+
+    /** 소프트 삭제 제외 + MFA 등록 여부별 사용자 수 */
+    long countByDeletedAtIsNullAndMfaEnabledYn(String mfaEnabledYn);
+
+    /**
+     * 월별 신규 가입자 수 (최근 12개월, 네이티브 쿼리)
+     * 반환: Object[]{ month("YYYY-MM"), cnt }
+     */
+    @Query(value = "SELECT DATE_FORMAT(created_at,'%Y-%m') AS month, COUNT(*) AS cnt " +
+                   "FROM ids_iam_user WHERE deleted_at IS NULL " +
+                   "AND created_at >= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 11 MONTH),'%Y-%m-01') " +
+                   "GROUP BY DATE_FORMAT(created_at,'%Y-%m') ORDER BY month ASC",
+           nativeQuery = true)
+    List<Object[]> countMonthlyRegistrations();
+
+    /**
+     * N일 이상 미접속 활성 사용자 (최대 10건, 네이티브 쿼리)
+     * 반환: Object[]{ oid, user_id, name, dept_code, last_login }
+     */
+    @Query(value = "SELECT u.oid, u.user_id, u.name, u.dept_code, " +
+                   "  MAX(h.performed_at) AS last_login " +
+                   "FROM ids_iam_user u " +
+                   "LEFT JOIN ids_iam_login_hist h " +
+                   "  ON h.user_oid = u.oid AND h.action_type = 'LOGIN_SUCCESS' " +
+                   "WHERE u.deleted_at IS NULL AND u.use_yn = 'Y' " +
+                   "GROUP BY u.oid, u.user_id, u.name, u.dept_code " +
+                   "HAVING last_login IS NULL OR last_login < DATE_SUB(NOW(), INTERVAL :days DAY) " +
+                   "ORDER BY (last_login IS NULL) DESC, last_login ASC LIMIT 10",
+           nativeQuery = true)
+    List<Object[]> findDormantUsers(@Param("days") int days);
+
+    /**
+     * 잠금 일시가 특정 시각 이전인 잠금 계정 목록 (자동 해제용)
+     */
+    @Query("SELECT u FROM SysUser u WHERE u.lockYn = 'Y' AND u.lockedAt IS NOT NULL AND u.lockedAt <= :before AND u.deletedAt IS NULL")
+    List<SysUser> findLockedBefore(@Param("before") LocalDateTime before);
 
     /** 소프트 삭제 제외 전체 사용자 수 */
     long countByDeletedAtIsNull();

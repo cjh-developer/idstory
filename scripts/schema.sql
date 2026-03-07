@@ -17,6 +17,8 @@ USE idstory_db;
 --  DROP 순서 (FK 역순으로 제거)
 -- ============================================================
 SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS ids_iam_access_control_hist;
+DROP TABLE IF EXISTS ids_iam_access_control;
 DROP TABLE IF EXISTS ids_iam_login_hist;
 DROP TABLE IF EXISTS ids_iam_user_acct_hist;
 DROP TABLE IF EXISTS ids_iam_org_history;
@@ -32,6 +34,10 @@ DROP TABLE IF EXISTS ids_iam_user_org_map;
 DROP TABLE IF EXISTS ids_iam_user;
 DROP TABLE IF EXISTS ids_iam_dept;
 DROP TABLE IF EXISTS ids_iam_pwd_policy;
+DROP TABLE IF EXISTS ids_iam_policy_hist;
+DROP TABLE IF EXISTS ids_iam_policy;
+DROP TABLE IF EXISTS ids_iam_role_subject;
+DROP TABLE IF EXISTS ids_iam_role_user;
 DROP TABLE IF EXISTS ids_iam_perm_subject;
 DROP TABLE IF EXISTS ids_iam_perm_role;
 DROP TABLE IF EXISTS ids_iam_permission;
@@ -96,6 +102,7 @@ CREATE TABLE ids_iam_user (
     use_yn           CHAR(1)         NOT NULL    DEFAULT 'Y'          COMMENT '사용여부 Y|N',
     status           VARCHAR(10)     NOT NULL    DEFAULT 'ACTIVE'     COMMENT '상태 ACTIVE|SLEEPER|OUT',
     lock_yn          CHAR(1)         NOT NULL    DEFAULT 'N'          COMMENT '잠금여부 Y|N (비밀번호 연속 실패 초과 시 Y)',
+    locked_at        DATETIME                                         COMMENT '잠금 일시 (자동 해제 기준)',
     login_fail_count INT             NOT NULL    DEFAULT 0            COMMENT '로그인 연속 실패 횟수',
     mfa_enabled_yn   CHAR(1)         NOT NULL    DEFAULT 'N'          COMMENT '2차 인증 Y|N',
     encrypt_yn       CHAR(1)         NOT NULL    DEFAULT 'N'          COMMENT 'PII 암호화 Y|N',
@@ -525,6 +532,37 @@ CREATE TABLE ids_iam_perm_role (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='권한-역할 매핑';
 
 -- ============================================================
+--  ids_iam_role_user 테이블 (역할-사용자 매핑)
+-- ============================================================
+CREATE TABLE ids_iam_role_user (
+    role_user_oid CHAR(18)    NOT NULL COMMENT '매핑 OID (PK)',
+    role_oid      CHAR(18)    NOT NULL COMMENT '역할 OID (FK → ids_iam_role)',
+    user_oid      CHAR(18)    NOT NULL COMMENT '사용자 OID (FK → ids_iam_user)',
+    created_at    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by    VARCHAR(50) NULL,
+    CONSTRAINT pk_iam_role_user  PRIMARY KEY (role_user_oid),
+    CONSTRAINT uq_iam_role_user  UNIQUE KEY  (role_oid, user_oid),
+    CONSTRAINT fk_ru_role        FOREIGN KEY (role_oid) REFERENCES ids_iam_role(role_oid) ON DELETE CASCADE,
+    CONSTRAINT fk_ru_user        FOREIGN KEY (user_oid) REFERENCES ids_iam_user(oid)      ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='역할-사용자 매핑';
+
+-- ============================================================
+--  ids_iam_role_subject 테이블 (역할 대상: 부서/직위/직급/예외)
+-- ============================================================
+CREATE TABLE ids_iam_role_subject (
+    role_subject_oid CHAR(18)    NOT NULL COMMENT '매핑 OID (PK)',
+    role_oid         CHAR(18)    NOT NULL COMMENT '역할 OID (FK → ids_iam_role)',
+    subject_type     VARCHAR(20) NOT NULL COMMENT '대상 유형: DEPT|POSITION|GRADE|EXCEPTION',
+    subject_oid      CHAR(18)    NOT NULL COMMENT '대상 OID (dept_oid|position_oid|grade_oid|user_oid)',
+    include_children CHAR(1)     NOT NULL DEFAULT 'N' COMMENT '하위 부서 포함 여부 (DEPT 전용)',
+    created_at       DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by       VARCHAR(50) NULL,
+    CONSTRAINT pk_iam_role_subject PRIMARY KEY (role_subject_oid),
+    CONSTRAINT uq_iam_role_subject UNIQUE KEY  (role_oid, subject_type, subject_oid),
+    CONSTRAINT fk_rsubj_role       FOREIGN KEY (role_oid) REFERENCES ids_iam_role(role_oid) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='역할 대상 매핑(부서/직위/직급/예외)';
+
+-- ============================================================
 --  ids_iam_perm_subject 테이블 (권한 대상: 부서/개인/직급/직위/예외)
 -- ============================================================
 CREATE TABLE ids_iam_perm_subject (
@@ -539,3 +577,90 @@ CREATE TABLE ids_iam_perm_subject (
     CONSTRAINT fk_ps_perm          FOREIGN KEY (perm_oid) REFERENCES ids_iam_permission(perm_oid) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   COMMENT='권한 대상 (부서/개인/직급/직위/예외사용자)';
+
+-- ============================================================
+--  ids_iam_policy 테이블 (통합 정책 Key-Value)
+-- ============================================================
+CREATE TABLE ids_iam_policy (
+    policy_group VARCHAR(30)     NOT NULL                         COMMENT '정책 그룹 (ADMIN_POLICY|USER_POLICY|PASSWORD_POLICY|LOGIN_POLICY|ACCOUNT_POLICY|AUDIT_POLICY|SYSTEM_POLICY)',
+    policy_key   VARCHAR(60)     NOT NULL                         COMMENT '정책 키',
+    policy_value VARCHAR(500)    NOT NULL                         COMMENT '정책 값',
+    value_type   VARCHAR(20)     NOT NULL    DEFAULT 'STRING'     COMMENT '값 유형 (STRING|INTEGER|BOOLEAN|ENUM|MULTI_STRING)',
+    description  VARCHAR(200)                                     COMMENT '정책 설명',
+    updated_at   DATETIME                    DEFAULT CURRENT_TIMESTAMP
+                                             ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일',
+    updated_by   VARCHAR(50)                                      COMMENT '수정자',
+
+    CONSTRAINT pk_iam_policy PRIMARY KEY (policy_group, policy_key),
+    INDEX idx_iam_policy_group (policy_group)
+
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  COMMENT = '통합 정책 (Key-Value)';
+
+-- ============================================================
+--  ids_iam_policy_hist 테이블 (정책 변경 이력)
+-- ============================================================
+CREATE TABLE ids_iam_policy_hist (
+    hist_oid     CHAR(18)        NOT NULL                         COMMENT '이력 OID (PK)',
+    policy_group VARCHAR(30)     NOT NULL                         COMMENT '정책 그룹',
+    policy_key   VARCHAR(60)     NOT NULL                         COMMENT '정책 키',
+    old_value    VARCHAR(500)                                     COMMENT '변경 전 값',
+    new_value    VARCHAR(500)                                     COMMENT '변경 후 값',
+    changed_at   DATETIME        NOT NULL    DEFAULT CURRENT_TIMESTAMP           COMMENT '변경 일시',
+    changed_by   VARCHAR(50)                                      COMMENT '변경자',
+
+    CONSTRAINT pk_iam_policy_hist    PRIMARY KEY (hist_oid),
+    INDEX idx_iam_ph_group_key       (policy_group, policy_key),
+    INDEX idx_iam_ph_changed_at      (changed_at)
+
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  COMMENT = '정책 변경 이력';
+
+-- ============================================================
+--  ids_iam_access_control 테이블 (IP/MAC 접근 제어 규칙)
+-- ============================================================
+CREATE TABLE ids_iam_access_control (
+    rule_oid     CHAR(18)        NOT NULL                         COMMENT '규칙 OID (PK)',
+    control_type VARCHAR(10)     NOT NULL                         COMMENT '제어 유형 IP|MAC',
+    rule_value   VARCHAR(50)     NOT NULL                         COMMENT 'IP/CIDR 또는 MAC 주소',
+    ip_version   VARCHAR(4)      NULL                             COMMENT 'IP 전용: IPV4|IPV6 (MAC은 NULL)',
+    description  VARCHAR(200)    NULL                             COMMENT '설명',
+    use_yn       CHAR(1)         NOT NULL    DEFAULT 'Y'          COMMENT '규칙 활성화 여부 Y|N',
+    created_at   DATETIME        NOT NULL    DEFAULT CURRENT_TIMESTAMP           COMMENT '등록 일시',
+    created_by   VARCHAR(50)                                      COMMENT '등록자',
+    updated_at   DATETIME                    DEFAULT CURRENT_TIMESTAMP
+                                             ON UPDATE CURRENT_TIMESTAMP         COMMENT '수정 일시',
+    updated_by   VARCHAR(50)                                      COMMENT '수정자',
+
+    CONSTRAINT pk_iam_access_ctrl   PRIMARY KEY (rule_oid),
+    CONSTRAINT uq_iam_access_ctrl   UNIQUE KEY  (control_type, rule_value),
+    INDEX idx_iam_ac_type           (control_type),
+    INDEX idx_iam_ac_use_yn         (use_yn)
+
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  COMMENT = 'IP/MAC 접근 제어 규칙';
+
+-- ============================================================
+--  ids_iam_access_control_hist 테이블 (접근 차단 이력)
+-- ============================================================
+CREATE TABLE ids_iam_access_control_hist (
+    hist_oid     CHAR(18)        NOT NULL                         COMMENT '이력 OID (PK)',
+    control_type VARCHAR(10)     NOT NULL                         COMMENT '차단 유형 IP|MAC',
+    request_val  VARCHAR(100)    NOT NULL                         COMMENT '차단된 접속 IP 또는 MAC',
+    request_uri  VARCHAR(255)    NULL                             COMMENT '요청 URI',
+    blocked_at   DATETIME        NOT NULL    DEFAULT CURRENT_TIMESTAMP           COMMENT '차단 일시',
+
+    CONSTRAINT pk_iam_ac_hist    PRIMARY KEY (hist_oid),
+    INDEX idx_iam_ach_type       (control_type),
+    INDEX idx_iam_ach_blocked_at (blocked_at)
+
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  COMMENT = '접근 제어 차단 이력';

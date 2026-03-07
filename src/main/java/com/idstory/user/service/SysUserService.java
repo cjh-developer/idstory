@@ -4,6 +4,7 @@ import com.idstory.common.security.CustomPasswordEncoder;
 import com.idstory.common.util.OidGenerator;
 import com.idstory.history.service.UserAccountHistoryService;
 import com.idstory.policy.service.PasswordPolicyService;
+import com.idstory.policy.service.SystemPolicyService;
 import com.idstory.user.dto.UserCreateDto;
 import com.idstory.user.dto.UserUpdateDto;
 import com.idstory.user.entity.SysUser;
@@ -16,6 +17,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -30,6 +33,7 @@ public class SysUserService {
     private final CustomPasswordEncoder passwordEncoder;
     private final UserAccountHistoryService historyService;
     private final PasswordPolicyService passwordPolicyService;
+    private final SystemPolicyService systemPolicyService;
 
     /**
      * 신규 사용자를 등록합니다.
@@ -47,12 +51,18 @@ public class SysUserService {
      */
     @Transactional
     public SysUser createUser(UserCreateDto dto, String performedBy, String ip) {
+        // 사용자 ID 정책 검증
+        validateUserId(dto.getUserId());
+
         if (sysUserRepository.existsByUserId(dto.getUserId())) {
             throw new IllegalArgumentException("이미 사용 중인 아이디입니다: " + dto.getUserId());
         }
         if (sysUserRepository.existsByEmail(dto.getEmail())) {
             throw new IllegalArgumentException("이미 사용 중인 이메일입니다: " + dto.getEmail());
         }
+
+        // 비밀번호 정책 검증
+        validatePassword(dto.getPassword());
 
         String oid  = OidGenerator.generate();
         String hash = passwordEncoder.encode(dto.getPassword());
@@ -134,6 +144,7 @@ public class SysUserService {
         user.setLockYn(dto.getLockYn() != null ? dto.getLockYn() : "N");
         if (isUnlocking) {
             user.setLoginFailCount(0);
+            user.setLockedAt(null);
         }
         user.setConcurrentYn(dto.getConcurrentYn() != null ? dto.getConcurrentYn() : "N");
         user.setValidStartDate(dto.getValidStartDate());
@@ -216,9 +227,16 @@ public class SysUserService {
             int newCount = user.getLoginFailCount() + 1;
             user.setLoginFailCount(newCount);
 
-            int maxFail = passwordPolicyService.getMaxLoginFailCount();
-            if (newCount >= maxFail) {
+            // 역할별 정책 분기 (ADMIN vs USER)
+            boolean isAdmin = "ADMIN".equals(user.getRole());
+            int maxFail = isAdmin
+                    ? systemPolicyService.getInt("ADMIN_POLICY", "ADMIN_MAX_LOGIN_FAIL", 5)
+                    : systemPolicyService.getInt("PASSWORD_POLICY", "MAX_LOGIN_FAIL_COUNT", 5);
+            boolean lockEnabled = systemPolicyService.getBoolean("PASSWORD_POLICY", "PWD_MAX_FAIL_LOCK", true);
+
+            if (lockEnabled && newCount >= maxFail) {
                 user.setLockYn("Y");
+                user.setLockedAt(LocalDateTime.now());
                 sysUserRepository.save(user);
 
                 historyService.log(user.getOid(), userId, "LOCK",
@@ -232,6 +250,123 @@ public class SysUserService {
                         userId, newCount, maxFail);
             }
         });
+    }
+
+    /**
+     * 사용자 ID 정책 검증
+     */
+    public void validateUserId(String userId) {
+        if (userId == null || userId.isBlank()) {
+            throw new IllegalArgumentException("사용자 ID를 입력해주세요.");
+        }
+        int minLen = systemPolicyService.getInt("USER_POLICY", "USER_ID_MIN_LEN", 4);
+        int maxLen = systemPolicyService.getInt("USER_POLICY", "USER_ID_MAX_LEN", 20);
+        boolean requireLetter = systemPolicyService.getBoolean("USER_POLICY", "USER_ID_REQUIRE_LETTER", true);
+        boolean startLetter   = systemPolicyService.getBoolean("USER_POLICY", "USER_ID_START_LETTER", false);
+        String  regex         = systemPolicyService.getString("USER_POLICY", "USER_ID_REGEX", "");
+
+        if (userId.length() < minLen) {
+            throw new IllegalArgumentException("사용자 ID는 " + minLen + "자 이상이어야 합니다.");
+        }
+        if (userId.length() > maxLen) {
+            throw new IllegalArgumentException("사용자 ID는 " + maxLen + "자 이하이어야 합니다.");
+        }
+        if (requireLetter && !userId.chars().anyMatch(Character::isLetter)) {
+            throw new IllegalArgumentException("사용자 ID에 영문자가 포함되어야 합니다.");
+        }
+        if (startLetter && !Character.isLetter(userId.charAt(0))) {
+            throw new IllegalArgumentException("사용자 ID는 영문자로 시작해야 합니다.");
+        }
+        if (regex != null && !regex.isBlank()) {
+            if (!userId.matches(regex)) {
+                throw new IllegalArgumentException("사용자 ID 형식이 올바르지 않습니다. (규칙: " + regex + ")");
+            }
+        }
+    }
+
+    /**
+     * 비밀번호 정책 검증
+     */
+    public void validatePassword(String password) {
+        if (password == null || password.isBlank()) {
+            throw new IllegalArgumentException("비밀번호를 입력해주세요.");
+        }
+        int minLen = systemPolicyService.getInt("PASSWORD_POLICY", "PWD_MIN_LEN", 8);
+        int maxLen = systemPolicyService.getInt("PASSWORD_POLICY", "PWD_MAX_LEN", 100);
+        int minUpper   = systemPolicyService.getInt("PASSWORD_POLICY", "PWD_MIN_UPPER",   0);
+        int minLower   = systemPolicyService.getInt("PASSWORD_POLICY", "PWD_MIN_LOWER",   0);
+        int minDigit   = systemPolicyService.getInt("PASSWORD_POLICY", "PWD_MIN_DIGIT",   0);
+        int minSpecial = systemPolicyService.getInt("PASSWORD_POLICY", "PWD_MIN_SPECIAL", 0);
+        int maxRepeat  = systemPolicyService.getInt("PASSWORD_POLICY", "PWD_MAX_REPEAT",  0);
+        boolean noConsecutive  = systemPolicyService.getBoolean("PASSWORD_POLICY", "PWD_NO_CONSECUTIVE", false);
+        String forbiddenWords  = systemPolicyService.getString("PASSWORD_POLICY", "PWD_FORBIDDEN_WORDS", "");
+        String allowedSpecials = systemPolicyService.getString("PASSWORD_POLICY", "PWD_ALLOWED_SPECIAL", "!@#$%^&*()_+-=");
+
+        if (password.length() < minLen) {
+            throw new IllegalArgumentException("비밀번호는 " + minLen + "자 이상이어야 합니다.");
+        }
+        if (password.length() > maxLen) {
+            throw new IllegalArgumentException("비밀번호는 " + maxLen + "자 이하이어야 합니다.");
+        }
+        if (minUpper > 0 && password.chars().filter(Character::isUpperCase).count() < minUpper) {
+            throw new IllegalArgumentException("비밀번호에 대문자가 " + minUpper + "자 이상 포함되어야 합니다.");
+        }
+        if (minLower > 0 && password.chars().filter(Character::isLowerCase).count() < minLower) {
+            throw new IllegalArgumentException("비밀번호에 소문자가 " + minLower + "자 이상 포함되어야 합니다.");
+        }
+        if (minDigit > 0 && password.chars().filter(Character::isDigit).count() < minDigit) {
+            throw new IllegalArgumentException("비밀번호에 숫자가 " + minDigit + "자 이상 포함되어야 합니다.");
+        }
+        if (minSpecial > 0) {
+            long specialCount = password.chars().filter(c -> allowedSpecials.indexOf(c) >= 0).count();
+            if (specialCount < minSpecial) {
+                throw new IllegalArgumentException("비밀번호에 특수문자(" + allowedSpecials + ")가 " + minSpecial + "자 이상 포함되어야 합니다.");
+            }
+        }
+        if (maxRepeat > 0) {
+            int consecutive = 1;
+            for (int i = 1; i < password.length(); i++) {
+                if (password.charAt(i) == password.charAt(i - 1)) {
+                    consecutive++;
+                    if (consecutive > maxRepeat) {
+                        throw new IllegalArgumentException("동일 문자를 " + maxRepeat + "자 초과 연속 사용할 수 없습니다.");
+                    }
+                } else {
+                    consecutive = 1;
+                }
+            }
+        }
+        if (noConsecutive) {
+            for (int i = 0; i < password.length() - 2; i++) {
+                int c1 = password.charAt(i), c2 = password.charAt(i + 1), c3 = password.charAt(i + 2);
+                if ((c2 == c1 + 1 && c3 == c2 + 1) || (c2 == c1 - 1 && c3 == c2 - 1)) {
+                    throw new IllegalArgumentException("연속된 문자(abc, 123 등)는 사용할 수 없습니다.");
+                }
+            }
+        }
+        if (forbiddenWords != null && !forbiddenWords.isBlank()) {
+            String lowerPwd = password.toLowerCase();
+            Arrays.stream(forbiddenWords.split(","))
+                    .map(String::trim)
+                    .filter(w -> !w.isBlank())
+                    .forEach(word -> {
+                        if (lowerPwd.contains(word.toLowerCase())) {
+                            throw new IllegalArgumentException("비밀번호에 금지 단어(" + word + ")를 사용할 수 없습니다.");
+                        }
+                    });
+        }
+    }
+
+    /**
+     * 초기 비밀번호를 정책에 따라 반환합니다 (FIXED/RANDOM).
+     */
+    public String getInitialPassword() {
+        String type = systemPolicyService.getString("PASSWORD_POLICY", "PWD_RESET_TYPE", "FIXED");
+        if ("RANDOM".equalsIgnoreCase(type)) {
+            int saltLen = systemPolicyService.getInt("PASSWORD_POLICY", "PWD_SALT_LEN", 8);
+            return OidGenerator.randomAlphanumeric(Math.max(saltLen, 8));
+        }
+        return systemPolicyService.getString("PASSWORD_POLICY", "PWD_RESET_VALUE", "1234");
     }
 
     /**

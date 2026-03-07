@@ -28,4 +28,18 @@ public final class OidGenerator {
         }
         return sb.toString();
     }
+
+    /**
+     * 지정 길이의 무작위 영숫자 문자열을 생성합니다.
+     *
+     * @param length 문자열 길이
+     * @return 무작위 영숫자 문자열
+     */
+    public static String randomAlphanumeric(int length) {
+        StringBuilder sb = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            sb.append(CHARS.charAt(RANDOM.nextInt(CHARS.length())));
+        }
+        return sb.toString();
+    }
 }

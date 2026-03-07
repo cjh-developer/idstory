@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{include/layout :: head('역할 사용자')}"></head>
+<body>
+
+<header th:replace="~{include/header :: header}"></header>
+
+<div class="app-body">
+    <aside th:replace="~{include/sidebar :: sidebar}"></aside>
+
+    <main class="app-content">
+
+        <!-- 페이지 헤더 -->
+        <div class="page-header">
+            <div>
+                <div class="breadcrumb-area">
+                    <i class="fas fa-house"></i>
+                    <i class="fas fa-chevron-right"></i>
+                    <span>권한 관리</span>
+                    <i class="fas fa-chevron-right"></i>
+                    <span>역할 사용자</span>
+                </div>
+                <h2 class="page-title">역할 사용자</h2>
+                <p class="page-subtitle">역할별로 개인·부서·직위·직급 단위로 사용자를 배정하고 예외 사용자를 관리합니다.</p>
+            </div>
+        </div>
+
+        <!-- 토스트 -->
+        <div id="toast-wrap" style="position:fixed;top:1.2rem;right:1.4rem;z-index:9999;min-width:280px;display:none;">
+            <div id="toast-inner" style="padding:.75rem 1.1rem;border-radius:8px;color:#fff;
+                        font-size:.88rem;font-weight:600;display:flex;align-items:center;gap:.6rem;
+                        box-shadow:0 4px 12px rgba(0,0,0,.18);">
+                <i id="toast-icon"></i><span id="toast-msg"></span>
+            </div>
+        </div>
+
+        <!-- 2단 레이아웃 -->
+        <div style="display:flex;gap:1.2rem;align-items:flex-start;">
+
+            <!-- ── 좌측: 역할 트리 ─────────────────────────────── -->
+            <div class="card" style="width:280px;flex-shrink:0;min-height:640px;">
+                <div class="card-body" style="padding:1rem;">
+                    <div style="font-size:.85rem;font-weight:700;color:#374151;margin-bottom:.6rem;">
+                        <i class="fas fa-user-shield" style="margin-right:.4rem;color:#2563eb;"></i>역할 목록
+                    </div>
+                    <div id="roleTree" style="font-size:.88rem;line-height:1.6;">
+                        <div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">로딩 중...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── 우측: 탭 패널 ───────────────────────────────── -->
+            <div style="flex:1;display:flex;flex-direction:column;gap:1.2rem;">
+
+                <!-- 탭 + 콘텐츠 카드 -->
+                <div class="card" style="min-height:420px;">
+                    <div class="card-body" style="padding:1rem;">
+
+                        <!-- 탭 버튼 -->
+                        <div style="display:flex;gap:.4rem;margin-bottom:1rem;flex-wrap:wrap;border-bottom:1px solid #e5e7eb;padding-bottom:.7rem;">
+                            <button type="button" class="tab-btn active" id="tab-USER"     onclick="switchTab('USER')">
+                                <i class="fas fa-user" style="margin-right:.3rem;"></i>개인
+                            </button>
+                            <button type="button" class="tab-btn"        id="tab-DEPT"     onclick="switchTab('DEPT')">
+                                <i class="fas fa-building" style="margin-right:.3rem;"></i>부서별
+                            </button>
+                            <button type="button" class="tab-btn"        id="tab-POSITION" onclick="switchTab('POSITION')">
+                                <i class="fas fa-medal" style="margin-right:.3rem;"></i>직위별
+                            </button>
+                            <button type="button" class="tab-btn"        id="tab-GRADE"    onclick="switchTab('GRADE')">
+                                <i class="fas fa-layer-group" style="margin-right:.3rem;"></i>직급별
+                            </button>
+                            <button type="button" class="tab-btn exception-tab" id="tab-EXCEPTION" onclick="switchTab('EXCEPTION')"
+                                    style="margin-left:auto;">
+                                <i class="fas fa-ban" style="margin-right:.3rem;color:#dc2626;"></i>예외사용자
+                            </button>
+                        </div>
+
+                        <!-- 탭 헤더 (제목 + 추가 버튼) -->
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;">
+                            <span id="panelTitle" style="font-size:.85rem;font-weight:700;color:#374151;">
+                                역할을 선택하세요.
+                            </span>
+                            <button id="addBtn" type="button" class="btn btn-sm btn-primary"
+                                    style="display:none;" onclick="openAddModal()">
+                                <i class="fas fa-plus"></i> <span id="addBtnLabel">추가</span>
+                            </button>
+                        </div>
+
+                        <!-- 배정 목록 -->
+                        <div id="subjectList">
+                            <div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">역할을 선택하세요.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 유효 사용자 미리보기 -->
+                <div class="card">
+                    <div class="card-body" style="padding:1rem;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;">
+                            <div style="font-size:.85rem;font-weight:700;color:#374151;">
+                                <i class="fas fa-users" style="margin-right:.4rem;color:#7c3aed;"></i>
+                                유효 사용자 미리보기
+                                <span id="effectiveCount" style="font-size:.78rem;color:#6b7280;font-weight:400;margin-left:.3rem;"></span>
+                            </div>
+                            <button id="calcBtn" type="button" class="btn btn-sm btn-outline-secondary"
+                                    style="display:none;" onclick="calcEffective()">
+                                <i class="fas fa-calculator"></i> 계산
+                            </button>
+                        </div>
+                        <div id="effectivePanel">
+                            <div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">역할 선택 후 계산 버튼을 클릭하세요.</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- /우측 -->
+        </div><!-- /2단 -->
+    </main>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!--  모달: 부서 다중 선택                                       -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="deptModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-building" style="margin-right:.5rem;color:#2563eb;"></i>부서 선택
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="min-height:360px;">
+                <!-- 하위 부서 포함 옵션 -->
+                <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;
+                            padding:.65rem 1rem;margin-bottom:.9rem;display:flex;align-items:center;gap:.6rem;">
+                    <input type="checkbox" id="includeChildrenCheck" style="width:16px;height:16px;cursor:pointer;">
+                    <label for="includeChildrenCheck" style="font-size:.87rem;font-weight:600;color:#0369a1;cursor:pointer;margin:0;">
+                        하위 부서 포함
+                        <span style="font-weight:400;color:#6b7280;font-size:.80rem;margin-left:.3rem;">
+                            — 체크 시 선택한 부서의 모든 하위 부서에도 역할이 적용됩니다
+                        </span>
+                    </label>
+                </div>
+
+                <!-- 부서 트리 -->
+                <div id="deptModalTree" style="font-size:.88rem;line-height:1.7;">
+                    <div style="color:#9ca3af;font-size:.83rem;">로딩 중...</div>
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content:space-between;">
+                <span id="deptSelectedLabel" style="font-size:.83rem;color:#2563eb;font-weight:600;"></span>
+                <div style="display:flex;gap:.5rem;">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">닫기</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="deptConfirmBtn"
+                            onclick="confirmDeptSelection()" disabled>
+                        <i class="fas fa-plus"></i> 선택 부서 추가
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!--  모달: 사용자 선택 (개인 / 예외사용자 공용)                  -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="userModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="userModalTitle">
+                    <i class="fas fa-user" style="margin-right:.5rem;color:#2563eb;"></i>사용자 선택
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom:.8rem;">
+                    <input type="text" id="userSearchInput" class="modal-input"
+                           placeholder="이름 또는 아이디 검색" oninput="searchUsers()">
+                </div>
+                <div id="userModalList" style="min-height:200px;font-size:.88rem;">
+                    <div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">로딩 중...</div>
+                </div>
+                <div id="userModalPaging"
+                     style="display:none;justify-content:center;align-items:center;gap:.4rem;padding:.6rem 0 0;flex-wrap:wrap;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!--  모달: 직위 선택                                            -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="positionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-medal" style="margin-right:.5rem;color:#d97706;"></i>직위 선택
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="min-height:200px;">
+                <div id="positionModalList" style="font-size:.88rem;line-height:1.7;">
+                    <div style="color:#9ca3af;font-size:.83rem;">로딩 중...</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!--  모달: 직급 선택                                            -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="gradeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-layer-group" style="margin-right:.5rem;color:#7c3aed;"></i>직급 선택
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="min-height:200px;">
+                <div id="gradeModalList" style="font-size:.88rem;line-height:1.7;">
+                    <div style="color:#9ca3af;font-size:.83rem;">로딩 중...</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!--  모달: 부서 배정 경고 확인                                  -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="deptWarningModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm" style="margin-top:15vh;">
+        <div class="modal-content">
+            <div class="modal-header" style="border-bottom:1px solid var(--gray-100);padding:.9rem 1.1rem;">
+                <h5 class="modal-title" style="font-size:.95rem;font-weight:700;">
+                    <i class="fas fa-triangle-exclamation" style="color:#d97706;margin-right:.4rem;"></i>
+                    부서 배정 사용자
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:1rem 1.1rem;">
+                <p id="deptWarningText"
+                   style="font-size:.85rem;color:#374151;margin:0;line-height:1.6;"></p>
+            </div>
+            <div class="modal-footer" style="border-top:1px solid var(--gray-100);padding:.7rem 1.1rem;gap:.5rem;">
+                <button type="button" class="btn btn-secondary btn-sm"
+                        data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-primary btn-sm"
+                        onclick="confirmDeptWarning()">계속 추가</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* ── 탭 버튼 ── */
+    .tab-btn {
+        padding: .3rem .85rem;
+        font-size: .83rem;
+        font-weight: 600;
+        border: 1px solid #d1d5db;
+        border-radius: 20px;
+        background: #fff;
+        color: #374151;
+        cursor: pointer;
+        transition: background .15s, color .15s, border-color .15s;
+    }
+    .tab-btn:hover { background: #f3f4f6; }
+    .tab-btn.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+    .tab-btn.exception-tab.active { background: #dc2626; border-color: #dc2626; }
+
+    /* ── 역할 트리 ── */
+    .role-item {
+        cursor: pointer;
+        padding: .28rem .5rem;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+    }
+    .role-item:hover { background: #f3f4f6; }
+    .role-item.selected { background: #eff6ff; font-weight: 700; color: #1d4ed8; }
+
+    /* ── 배정 카드 ── */
+    .subject-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: .45rem .7rem;
+        border-radius: 6px;
+        margin-bottom: .35rem;
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+        gap: .5rem;
+    }
+    .subject-card.exception-card {
+        background: #fff5f5;
+        border-color: #fecaca;
+    }
+
+    /* ── 모달 항목 ── */
+    .modal-pick {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: .4rem .6rem;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background .12s;
+    }
+    .modal-pick:hover { background: #eff6ff; }
+
+    /* ── 부서 트리 체크항목 ── */
+    .dept-check-item {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        padding: .3rem .4rem;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background .1s;
+    }
+    .dept-check-item:hover { background: #f0f9ff; }
+    .dept-toggle-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        width: 18px;
+        text-align: center;
+        color: #6b7280;
+        font-size: .78rem;
+        flex-shrink: 0;
+    }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/common.js}"></script>
+<script>
+    /* ────────────────────────────────────────────────────────────
+       상태 변수
+    ──────────────────────────────────────────────────────────── */
+    let selectedRoleOid  = null;
+    let allRoles         = [];
+    let currentTab       = 'USER';
+
+    // 사용자 모달
+    let userSearchTimer  = null;
+    let userModalPage    = 0;
+    let userModalKeyword = '';
+    let userModalMode    = 'USER';  // USER | EXCEPTION
+
+    // 부서 모달
+    let deptTreeData     = [];      // raw tree
+    let selectedDeptOids = new Set();
+
+    const TAB_META = {
+        USER:      { label: '개인',     icon: 'fa-user',        color: '#2563eb', addLabel: '사용자 추가' },
+        DEPT:      { label: '부서별',   icon: 'fa-building',    color: '#2563eb', addLabel: '부서 추가' },
+        POSITION:  { label: '직위별',   icon: 'fa-medal',       color: '#d97706', addLabel: '직위 추가' },
+        GRADE:     { label: '직급별',   icon: 'fa-layer-group', color: '#7c3aed', addLabel: '직급 추가' },
+        EXCEPTION: { label: '예외사용자', icon: 'fa-ban',        color: '#dc2626', addLabel: '예외사용자 추가' },
+    };
+
+    /* ────────────────────────────────────────────────────────────
+       Bootstrap 모달 헬퍼
+    ──────────────────────────────────────────────────────────── */
+    function showModal(id) {
+        bootstrap.Modal.getOrCreateInstance(document.getElementById(id)).show();
+    }
+    function hideModal(id) {
+        bootstrap.Modal.getInstance(document.getElementById(id))?.hide();
+    }
+
+    /* ────────────────────────────────────────────────────────────
+       초기화
+    ──────────────────────────────────────────────────────────── */
+    document.addEventListener('DOMContentLoaded', loadRoleTree);
+
+    /* ────────────────────────────────────────────────────────────
+       역할 트리
+    ──────────────────────────────────────────────────────────── */
+    function loadRoleTree() {
+        fetch('/auth/role/tree')
+            .then(r => r.json())
+            .then(data => {
+                allRoles = flattenTree(data);
+                renderRoleTree(data);
+            })
+            .catch(() => {
+                document.getElementById('roleTree').innerHTML =
+                    '<div style="color:#ef4444;font-size:.83rem;padding:.5rem;">로드 실패</div>';
+            });
+    }
+
+    function flattenTree(nodes, out = []) {
+        nodes.forEach(n => { out.push(n); if (n.children?.length) flattenTree(n.children, out); });
+        return out;
+    }
+
+    function buildRoots(flat) {
+        const map = {};
+        flat.forEach(r => map[r.roleOid] = { ...r, children: [] });
+        const roots = [];
+        flat.forEach(r => {
+            if (r.parentOid && map[r.parentOid]) map[r.parentOid].children.push(map[r.roleOid]);
+            else roots.push(map[r.roleOid]);
+        });
+        return roots;
+    }
+
+    function renderRoleTree(roots) {
+        const el = document.getElementById('roleTree');
+        if (!roots?.length) {
+            el.innerHTML = '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">등록된 역할이 없습니다.</div>';
+            return;
+        }
+        el.innerHTML = buildRoleHtml(roots, 0);
+    }
+
+    function buildRoleHtml(nodes, depth) {
+        let html = '';
+        for (const n of nodes) {
+            const isSelected = n.roleOid === selectedRoleOid;
+            const indent = depth * 14;
+            const icon   = n.children?.length ? 'fa-layer-group' : 'fa-user-shield';
+            html += `<div style="margin-left:${indent}px;">
+                <div class="role-item ${isSelected ? 'selected' : ''}" onclick="selectRole('${n.roleOid}')">
+                    <i class="fas ${icon}" style="color:#2563eb;font-size:.8rem;width:14px;"></i>
+                    <span style="font-size:.85rem;">${n.roleName}</span>
+                    <span style="font-size:.73rem;color:#9ca3af;">(${n.roleCode})</span>
+                </div>`;
+            if (n.children?.length) html += buildRoleHtml(n.children, depth + 1);
+            html += '</div>';
+        }
+        return html;
+    }
+
+    function selectRole(roleOid) {
+        selectedRoleOid = roleOid;
+        renderRoleTree(buildRoots(allRoles));
+
+        const role = allRoles.find(r => r.roleOid === roleOid);
+        document.getElementById('addBtn').style.display  = '';
+        document.getElementById('calcBtn').style.display = '';
+        updatePanelTitle(role);
+        loadCurrentTab();
+        clearEffective();
+    }
+
+    /* ────────────────────────────────────────────────────────────
+       탭 전환
+    ──────────────────────────────────────────────────────────── */
+    function switchTab(type) {
+        currentTab = type;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-' + type).classList.add('active');
+
+        const role = allRoles.find(r => r.roleOid === selectedRoleOid);
+        updatePanelTitle(role);
+
+        const meta = TAB_META[type];
+        document.getElementById('addBtnLabel').textContent = meta.addLabel;
+
+        if (selectedRoleOid) loadCurrentTab();
+    }
+
+    function updatePanelTitle(role) {
+        const meta = TAB_META[currentTab];
+        const roleLabel = role ? role.roleName : '';
+        document.getElementById('panelTitle').innerHTML =
+            `<i class="fas ${meta.icon}" style="color:${meta.color};margin-right:.4rem;"></i>` +
+            `<span>${meta.label}</span>` +
+            (roleLabel ? `<span style="font-size:.78rem;color:#6b7280;font-weight:400;margin-left:.4rem;">— ${roleLabel}</span>` : '');
+    }
+
+    function loadCurrentTab() {
+        if (!selectedRoleOid) return;
+        if (currentTab === 'USER') loadUsers();
+        else loadSubjects(currentTab);
+    }
+
+    /* ────────────────────────────────────────────────────────────
+       개인 탭 (ids_iam_role_user)
+    ──────────────────────────────────────────────────────────── */
+    function loadUsers() {
+        setListLoading();
+        fetch(`/auth/role-user/users?roleOid=${selectedRoleOid}`)
+            .then(r => r.json())
+            .then(data => renderUserList(data))
+            .catch(() => setListError());
+    }
+
+    function renderUserList(items) {
+        const el = document.getElementById('subjectList');
+        if (!items?.length) {
+            el.innerHTML = '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">배정된 사용자가 없습니다.</div>';
+            return;
+        }
+        el.innerHTML = items.map(u => {
+            const badge = u.useYn === 'N'
+                ? `<span style="font-size:.72rem;background:#fee2e2;color:#991b1b;border-radius:4px;padding:.1rem .35rem;">비활성</span>`
+                : '';
+            return `<div class="subject-card">
+                <div style="flex:1;min-width:0;">
+                    <span style="font-size:.88rem;font-weight:600;">${u.name}</span>
+                    <span style="font-size:.78rem;color:#6b7280;margin-left:.4rem;">(${u.userId})</span>
+                    ${badge}
+                    ${u.deptCode ? `<span style="font-size:.75rem;color:#9ca3af;margin-left:.4rem;">${u.deptCode}</span>` : ''}
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger"
+                        style="padding:.15rem .5rem;font-size:.75rem;flex-shrink:0;"
+                        onclick="revokeUser('${u.roleUserOid}')">
+                    <i class="fas fa-minus"></i> 해제
+                </button>
+            </div>`;
+        }).join('');
+    }
+
+    function revokeUser(roleUserOid) {
+        if (!confirm('배정을 해제하시겠습니까?')) return;
+        postForm(`/auth/role-user/revoke?roleUserOid=${roleUserOid}`, () => loadUsers());
+    }
+
+    /* ────────────────────────────────────────────────────────────
+       대상 탭 (DEPT / POSITION / GRADE / EXCEPTION)
+    ──────────────────────────────────────────────────────────── */
+    function loadSubjects(type) {
+        setListLoading();
+        fetch(`/auth/role-user/subjects?roleOid=${selectedRoleOid}&type=${type}`)
+            .then(r => r.json())
+            .then(data => renderSubjectList(data, type))
+            .catch(() => setListError());
+    }
+
+    function renderSubjectList(items, type) {
+        const el          = document.getElementById('subjectList');
+        const isException = type === 'EXCEPTION';
+
+        if (!items?.length) {
+            el.innerHTML = '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">배정된 항목이 없습니다.</div>';
+            return;
+        }
+        el.innerHTML = items.map(item => {
+            const name = item.displayName || '(알 수 없음)';
+            const code = item.displayCode || '';
+
+            const childBadge = (type === 'DEPT' && item.includeChildren === 'Y')
+                ? `<span style="font-size:.72rem;background:#dcfce7;color:#166534;border-radius:4px;
+                               padding:.1rem .35rem;margin-left:.4rem;">하위포함</span>`
+                : '';
+
+            const deptUsersBtn = (type === 'DEPT')
+                ? `<button type="button" class="btn btn-sm btn-outline-secondary"
+                           style="padding:.15rem .5rem;font-size:.75rem;"
+                           onclick="toggleDeptUsers('${item.subjectOid}', '${item.includeChildren}', this)">
+                       <i class="fas fa-users"></i>
+                   </button>`
+                : '';
+
+            return `<div class="subject-card ${isException ? 'exception-card' : ''}" style="flex-wrap:wrap;">
+                <div style="flex:1;min-width:0;">
+                    <span style="font-size:.88rem;font-weight:600;color:${isException ? '#991b1b' : '#374151'};">${name}</span>
+                    <span style="font-size:.75rem;color:#6b7280;margin-left:.4rem;">(${code})</span>
+                    ${childBadge}
+                </div>
+                <div style="display:flex;align-items:center;gap:.3rem;flex-shrink:0;">
+                    ${deptUsersBtn}
+                    <button type="button" class="btn btn-sm btn-outline-danger"
+                            style="padding:.15rem .5rem;font-size:.75rem;"
+                            onclick="revokeSubject('${item.roleSubjectOid}', '${type}')">
+                        <i class="fas fa-minus"></i> 해제
+                    </button>
+                </div>
+                ${type === 'DEPT'
+                    ? `<div id="dept-users-${item.subjectOid}" style="display:none;width:100%;margin-top:.5rem;"></div>`
+                    : ''}
+            </div>`;
+        }).join('');
+    }
+
+    function revokeSubject(roleSubjectOid, type) {
+        if (!confirm('배정을 해제하시겠습니까?')) return;
+        postForm(`/auth/role-user/subjects/revoke?roleSubjectOid=${roleSubjectOid}`,
+                 () => loadSubjects(type));
+    }
+
+    /* ── 부서 사용자 인라인 토글 ──────────────────────────────── */
+    function toggleDeptUsers(deptOid, includeChildren, btn) {
+        const panel = document.getElementById('dept-users-' + deptOid);
+        if (!panel) return;
+        if (panel.style.display !== 'none') {
+            panel.style.display = 'none';
+            btn.querySelector('i').className = 'fas fa-users';
+            return;
+        }
+        panel.style.display = 'block';
+        if (panel.dataset.loaded === 'true') {
+            btn.querySelector('i').className = 'fas fa-users-slash';
+            return;
+        }
+        btn.querySelector('i').className = 'fas fa-spinner fa-spin';
+        const url = `/org/api/dept-users?deptOid=${deptOid}&page=0` + (includeChildren === 'Y' ? '&includeChildren=Y' : '');
+        fetch(url)
+            .then(r => r.json())
+            .then(data => {
+                btn.querySelector('i').className = 'fas fa-users-slash';
+                if (data.error) {
+                    panel.innerHTML = `<div style="color:#ef4444;font-size:.8rem;">${data.error}</div>`;
+                    return;
+                }
+                const users = data.users || [];
+                const total = data.totalElements || users.length;
+                panel.innerHTML = users.length === 0
+                    ? '<div style="color:#9ca3af;font-size:.8rem;">부서 소속 사용자가 없습니다.</div>'
+                    : `<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:.5rem;">
+                         <div style="font-size:.78rem;color:#0369a1;font-weight:600;margin-bottom:.3rem;">
+                             <i class="fas fa-users" style="margin-right:.3rem;"></i>부서 사용자 (${total}명)
+                         </div>
+                         ${users.map(u => `<div style="font-size:.82rem;padding:.15rem .3rem;display:flex;gap:.5rem;">
+                             <span style="font-weight:600;color:#1d4ed8;">${u.userId}</span>
+                             <span>${u.name}</span></div>`).join('')}
+                         ${total > users.length ? `<div style="font-size:.77rem;color:#6b7280;margin-top:.3rem;">... 외 ${total - users.length}명</div>` : ''}
+                       </div>`;
+                panel.dataset.loaded = 'true';
+            })
+            .catch(() => {
+                btn.querySelector('i').className = 'fas fa-users-slash';
+                panel.innerHTML = '<div style="color:#ef4444;font-size:.8rem;">로드 실패</div>';
+            });
+    }
+
+    /* ────────────────────────────────────────────────────────────
+       추가 모달 라우팅
+    ──────────────────────────────────────────────────────────── */
+    function openAddModal() {
+        switch (currentTab) {
+            case 'USER':      openUserModal('USER');      break;
+            case 'DEPT':      openDeptModal();            break;
+            case 'POSITION':  openPositionModal();        break;
+            case 'GRADE':     openGradeModal();           break;
+            case 'EXCEPTION': openUserModal('EXCEPTION'); break;
+        }
+    }
+
+    /* ────────────────────────────────────────────────────────────
+       부서 다중선택 모달
+    ──────────────────────────────────────────────────────────── */
+    function openDeptModal() {
+        selectedDeptOids.clear();
+        document.getElementById('includeChildrenCheck').checked = false;
+        document.getElementById('deptSelectedLabel').textContent = '';
+        document.getElementById('deptConfirmBtn').disabled = true;
+        document.getElementById('deptModalTree').innerHTML =
+            '<div style="color:#9ca3af;font-size:.83rem;">로딩 중...</div>';
+        showModal('deptModal');
+
+        fetch('/org/api/depts')
+            .then(r => r.json())
+            .then(data => {
+                deptTreeData = data;
+                document.getElementById('deptModalTree').innerHTML =
+                    buildDeptCheckHtml(data, 0) ||
+                    '<div style="color:#9ca3af;font-size:.83rem;">부서가 없습니다.</div>';
+            })
+            .catch(() => {
+                document.getElementById('deptModalTree').innerHTML =
+                    '<div style="color:#ef4444;font-size:.83rem;">로드 실패</div>';
+            });
+    }
+
+    function buildDeptCheckHtml(nodes, depth) {
+        let html = '';
+        for (const node of nodes) {
+            const indent      = depth * 18;
+            const hasChildren = node.children?.length > 0;
+            const toggleBtn   = hasChildren
+                ? `<button class="dept-toggle-btn" onclick="toggleDeptBranch('${node.deptOid}', this)" type="button">
+                       <i class="fas fa-chevron-right"></i>
+                   </button>`
+                : `<span style="width:18px;display:inline-block;"></span>`;
+
+            html += `<div style="margin-left:${indent}px;">
+                <div class="dept-check-item">
+                    ${toggleBtn}
+                    <input type="checkbox" id="dchk-${node.deptOid}" value="${node.deptOid}"
+                           style="width:15px;height:15px;cursor:pointer;"
+                           onchange="onDeptCheck('${node.deptOid}', this.checked)">
+                    <label for="dchk-${node.deptOid}" style="cursor:pointer;margin:0;font-size:.87rem;">
+                        ${node.deptName}
+                        <span style="font-size:.74rem;color:#9ca3af;margin-left:.3rem;">(${node.deptCode})</span>
+                    </label>
+                </div>`;
+
+            if (hasChildren) {
+                html += `<div id="dbranch-${node.deptOid}" style="display:none;">
+                    ${buildDeptCheckHtml(node.children, depth + 1)}
+                </div>`;
+            }
+            html += '</div>';
+        }
+        return html;
+    }
+
+    function toggleDeptBranch(deptOid, btn) {
+        const branch = document.getElementById('dbranch-' + deptOid);
+        if (!branch) return;
+        const isOpen = branch.style.display !== 'none';
+        branch.style.display = isOpen ? 'none' : 'block';
+        btn.querySelector('i').className = isOpen ? 'fas fa-chevron-right' : 'fas fa-chevron-down';
+    }
+
+    function onDeptCheck(deptOid, checked) {
+        if (checked) selectedDeptOids.add(deptOid);
+        else         selectedDeptOids.delete(deptOid);
+        updateDeptSelectionLabel();
+    }
+
+    function updateDeptSelectionLabel() {
+        const cnt = selectedDeptOids.size;
+        document.getElementById('deptSelectedLabel').textContent =
+            cnt > 0 ? `${cnt}개 부서 선택됨` : '';
+        document.getElementById('deptConfirmBtn').disabled = cnt === 0;
+    }
+
+    function confirmDeptSelection() {
+        if (selectedDeptOids.size === 0) return;
+        const includeChildren = document.getElementById('includeChildrenCheck').checked ? 'Y' : 'N';
+        const deptOids        = Array.from(selectedDeptOids);
+
+        hideModal('deptModal');
+
+        // URLSearchParams로 다중 값 전송
+        const fd = new FormData();
+        appendCsrf(fd);
+        deptOids.forEach(oid => fd.append('deptOids', oid));
+        fd.append('includeChildren', includeChildren);
+
+        fetch(`/auth/role-user/subjects/assign-depts?roleOid=${selectedRoleOid}`,
+              { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(data => {
+                showToast(data.message, data.success !== false);
+                if (data.success !== false) { loadSubjects('DEPT'); clearEffective(); }
+            })
+            .catch(() => showToast('배정 중 오류가 발생했습니다.', false));
+    }
+
+    /* ────────────────────────────────────────────────────────────
+       사용자 모달 (개인 / 예외)
+    ──────────────────────────────────────────────────────────── */
+    function openUserModal(mode) {
+        userModalMode    = mode;
+        userModalPage    = 0;
+        userModalKeyword = '';
+        document.getElementById('userSearchInput').value = '';
+        const isException = mode === 'EXCEPTION';
+        document.getElementById('userModalTitle').innerHTML =
+            `<i class="fas fa-${isException ? 'ban' : 'user'}"
+                style="margin-right:.5rem;color:${isException ? '#dc2626' : '#2563eb'};"></i>`+
+            `${isException ? '예외 사용자 선택' : '사용자 선택'}`;
+        showModal('userModal');
+        document.getElementById('userModal').addEventListener('shown.bs.modal', () => {
+            document.getElementById('userSearchInput').focus();
+            loadUserPage(0);
+        }, { once: true });
+    }
+
+    function searchUsers() {
+        clearTimeout(userSearchTimer);
+        userSearchTimer = setTimeout(() => {
+            userModalKeyword = document.getElementById('userSearchInput').value.trim();
+            userModalPage    = 0;
+            loadUserPage(0);
+        }, 300);
+    }
+
+    function loadUserPage(page) {
+        userModalPage = page;
+        document.getElementById('userModalList').innerHTML =
+            '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">로딩 중...</div>';
+        document.getElementById('userModalPaging').style.display = 'none';
+
+        const kw = userModalKeyword ? `&keyword=${encodeURIComponent(userModalKeyword)}` : '';
+        fetch(`/org/api/assignable-users?page=${page}${kw}`)
+            .then(r => r.json())
+            .then(data => renderUserModalList(data.users || [], data.totalPages || 1, data.currentPage || 0, data.totalElements || 0))
+            .catch(() => {
+                document.getElementById('userModalList').innerHTML =
+                    '<div style="color:#ef4444;font-size:.83rem;padding:.5rem;">로드 실패</div>';
+            });
+    }
+
+    function renderUserModalList(users, totalPages, currentPage, totalElements) {
+        const el    = document.getElementById('userModalList');
+        const pagEl = document.getElementById('userModalPaging');
+        if (!users?.length) {
+            el.innerHTML = '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">검색 결과가 없습니다.</div>';
+            pagEl.style.display = 'none'; return;
+        }
+        el.innerHTML = users.map(u =>
+            `<div class="modal-pick" onclick="selectUser('${u.oid}')">
+                <div>
+                    <span style="font-size:.88rem;font-weight:600;">${u.name}</span>
+                    <span style="font-size:.75rem;color:#6b7280;margin-left:.4rem;">(${u.userId})</span>
+                    ${u.deptCode ? `<span style="font-size:.73rem;color:#9ca3af;margin-left:.3rem;">${u.deptCode}</span>` : ''}
+                </div>
+                <i class="fas fa-plus" style="color:#2563eb;font-size:.75rem;"></i>
+            </div>`
+        ).join('');
+
+        if (totalPages <= 1) { pagEl.style.display = 'none'; return; }
+        pagEl.style.display = 'flex';
+        const dis = (d) => `style="padding:.25rem .6rem;font-size:.78rem;border:1px solid #d1d5db;border-radius:4px;
+                background:${d ? '#f3f4f6' : '#fff'};color:${d ? '#9ca3af' : '#374151'};cursor:${d ? 'default' : 'pointer'};"`;
+        let html = `<button ${dis(currentPage===0)} ${currentPage>0 ? `onclick="loadUserPage(${currentPage-1})"` : 'disabled'}>
+                        <i class="fas fa-chevron-left"></i></button>`;
+        const s = Math.max(0, currentPage-2), e = Math.min(totalPages-1, s+4);
+        for (let i = s; i <= e; i++) {
+            const a = i === currentPage;
+            html += `<button onclick="loadUserPage(${i})"
+                style="padding:.25rem .55rem;font-size:.78rem;border:1px solid ${a?'#2563eb':'#d1d5db'};
+                border-radius:4px;background:${a?'#2563eb':'#fff'};color:${a?'#fff':'#374151'};cursor:pointer;">${i+1}</button>`;
+        }
+        html += `<button ${dis(currentPage>=totalPages-1)} ${currentPage<totalPages-1 ? `onclick="loadUserPage(${currentPage+1})"` : 'disabled'}>
+                     <i class="fas fa-chevron-right"></i></button>
+                 <span style="font-size:.75rem;color:#9ca3af;margin-left:.3rem;">총 ${totalElements}명</span>`;
+        pagEl.innerHTML = html;
+    }
+
+    let pendingUserOid = null;
+
+    function selectUser(userOid) {
+        hideModal('userModal');
+        if (userModalMode === 'USER') {
+            // 부서 배정 여부 확인 후 필요하면 경고
+            fetch(`/auth/role-user/check-dept?roleOid=${selectedRoleOid}&userOid=${userOid}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.covered) {
+                        pendingUserOid = userOid;
+                        const names = (data.deptNames || []).join(', ');
+                        document.getElementById('deptWarningText').textContent =
+                            `이 사용자는 이미 "${names}" 부서 배정을 통해 이 역할을 받고 있습니다. 그래도 개인으로 추가하시겠습니까?`;
+                        showModal('deptWarningModal');
+                    } else {
+                        doAssignUser(userOid);
+                    }
+                })
+                .catch(() => doAssignUser(userOid)); // 오류 시 그냥 진행
+        } else {
+            assignSubject('EXCEPTION', userOid);
+        }
+    }
+
+    function doAssignUser(userOid) {
+        const fd = new FormData();
+        appendCsrf(fd);
+        fetch(`/auth/role-user/assign?roleOid=${selectedRoleOid}&userOid=${userOid}`,
+              { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(data => { showToast(data.message, data.success); if (data.success) { loadUsers(); clearEffective(); } })
+            .catch(() => showToast('배정 중 오류', false));
+    }
+
+    function confirmDeptWarning() {
+        hideModal('deptWarningModal');
+        if (pendingUserOid) { doAssignUser(pendingUserOid); pendingUserOid = null; }
+    }
+
+    /* ────────────────────────────────────────────────────────────
+       직위 모달
+    ──────────────────────────────────────────────────────────── */
+    function openPositionModal() {
+        document.getElementById('positionModalList').innerHTML =
+            '<div style="color:#9ca3af;font-size:.83rem;">로딩 중...</div>';
+        showModal('positionModal');
+        fetch('/org/api/positions?useYn=Y&includeDeleted=false&page=0')
+            .then(r => r.json())
+            .then(data => renderPickList('positionModalList', data.content || [],
+                    'positionOid', 'positionName', 'positionCode', 'POSITION', 'positionModal'))
+            .catch(() => {
+                document.getElementById('positionModalList').innerHTML =
+                    '<div style="color:#ef4444;font-size:.83rem;">로드 실패</div>';
+            });
+    }
+
+    /* ────────────────────────────────────────────────────────────
+       직급 모달
+    ──────────────────────────────────────────────────────────── */
+    function openGradeModal() {
+        document.getElementById('gradeModalList').innerHTML =
+            '<div style="color:#9ca3af;font-size:.83rem;">로딩 중...</div>';
+        showModal('gradeModal');
+        fetch('/org/api/grades?useYn=Y&includeDeleted=false&page=0')
+            .then(r => r.json())
+            .then(data => renderPickList('gradeModalList', data.content || [],
+                    'gradeOid', 'gradeName', 'gradeCode', 'GRADE', 'gradeModal'))
+            .catch(() => {
+                document.getElementById('gradeModalList').innerHTML =
+                    '<div style="color:#ef4444;font-size:.83rem;">로드 실패</div>';
+            });
+    }
+
+    function renderPickList(elId, items, oidField, nameField, codeField, subjectType, modalId) {
+        const el = document.getElementById(elId);
+        if (!items?.length) {
+            el.innerHTML = '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">등록된 항목이 없습니다.</div>';
+            return;
+        }
+        el.innerHTML = items.map(item =>
+            `<div class="modal-pick" onclick="selectPick('${item[oidField]}','${subjectType}','${modalId}')">
+                <div>
+                    <span style="font-size:.88rem;font-weight:600;">${item[nameField]}</span>
+                    <span style="font-size:.75rem;color:#6b7280;margin-left:.4rem;">(${item[codeField]})</span>
+                </div>
+                <i class="fas fa-plus" style="color:#2563eb;font-size:.75rem;"></i>
+            </div>`
+        ).join('');
+    }
+
+    function selectPick(oid, subjectType, modalId) {
+        hideModal(modalId);
+        assignSubject(subjectType, oid);
+    }
+
+    /* ────────────────────────────────────────────────────────────
+       단건 대상 배정 (POSITION / GRADE / EXCEPTION)
+    ──────────────────────────────────────────────────────────── */
+    function assignSubject(subjectType, subjectOid) {
+        const fd = new FormData();
+        appendCsrf(fd);
+        fetch(`/auth/role-user/subjects/assign?roleOid=${selectedRoleOid}&subjectType=${subjectType}&subjectOid=${subjectOid}`,
+              { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(data => {
+                showToast(data.message, data.success);
+                if (data.success) { loadSubjects(subjectType); clearEffective(); }
+            })
+            .catch(() => showToast('배정 중 오류가 발생했습니다.', false));
+    }
+
+    /* ────────────────────────────────────────────────────────────
+       유효 사용자 계산
+    ──────────────────────────────────────────────────────────── */
+    function calcEffective() {
+        if (!selectedRoleOid) return;
+        document.getElementById('effectivePanel').innerHTML =
+            '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">계산 중...</div>';
+        document.getElementById('effectiveCount').textContent = '';
+
+        fetch(`/auth/role-user/effective?roleOid=${selectedRoleOid}`)
+            .then(r => r.json())
+            .then(data => renderEffective(data))
+            .catch(() => {
+                document.getElementById('effectivePanel').innerHTML =
+                    '<div style="color:#ef4444;font-size:.83rem;padding:.5rem;">계산 실패</div>';
+            });
+    }
+
+    function renderEffective(data) {
+        document.getElementById('effectiveCount').textContent =
+            `(유효 ${data.count}명${data.excludedCount > 0 ? ', 예외 ' + data.excludedCount + '명 제외' : ''})`;
+
+        const el = document.getElementById('effectivePanel');
+        if (!data.users?.length) {
+            el.innerHTML = '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">유효 사용자가 없습니다.</div>';
+            return;
+        }
+        el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:.85rem;">
+            <thead>
+                <tr style="background:#f9fafb;border-bottom:1px solid #e5e7eb;">
+                    <th style="padding:.4rem .6rem;text-align:left;color:#374151;font-weight:600;">아이디</th>
+                    <th style="padding:.4rem .6rem;text-align:left;color:#374151;font-weight:600;">이름</th>
+                    <th style="padding:.4rem .6rem;text-align:left;color:#374151;font-weight:600;">부서코드</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${data.users.map(u => `
+                <tr style="border-bottom:1px solid #f3f4f6;">
+                    <td style="padding:.38rem .6rem;color:#1d4ed8;font-weight:600;">${u.userId}</td>
+                    <td style="padding:.38rem .6rem;">${u.name}</td>
+                    <td style="padding:.38rem .6rem;color:#6b7280;">${u.deptCode || '—'}</td>
+                </tr>`).join('')}
+            </tbody>
+        </table>`;
+    }
+
+    function clearEffective() {
+        document.getElementById('effectiveCount').textContent = '';
+        document.getElementById('effectivePanel').innerHTML =
+            '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">역할 선택 후 계산 버튼을 클릭하세요.</div>';
+    }
+
+    /* ────────────────────────────────────────────────────────────
+       공통 유틸
+    ──────────────────────────────────────────────────────────── */
+    function setListLoading() {
+        document.getElementById('subjectList').innerHTML =
+            '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">로딩 중...</div>';
+    }
+    function setListError() {
+        document.getElementById('subjectList').innerHTML =
+            '<div style="color:#ef4444;font-size:.83rem;padding:.5rem;">로드 실패</div>';
+    }
+
+    function postForm(url, onSuccess) {
+        const fd = new FormData();
+        appendCsrf(fd);
+        fetch(url, { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(data => {
+                showToast(data.message, data.success);
+                if (data.success) { onSuccess(); clearEffective(); }
+            })
+            .catch(() => showToast('처리 중 오류가 발생했습니다.', false));
+    }
+
+    function showToast(msg, success) {
+        const wrap  = document.getElementById('toast-wrap');
+        const inner = document.getElementById('toast-inner');
+        document.getElementById('toast-icon').className  = success ? 'fas fa-circle-check' : 'fas fa-circle-xmark';
+        document.getElementById('toast-msg').textContent = msg;
+        inner.style.background = success ? '#16a34a' : '#dc2626';
+        wrap.style.display = 'block';
+        setTimeout(() => { wrap.style.display = 'none'; }, 3200);
+    }
+
+    function appendCsrf(fd) {
+        const meta = document.querySelector('meta[name="_csrf"]');
+        if (meta) fd.append(meta.getAttribute('name'), meta.getAttribute('content'));
+    }
+</script>
+</body>
+</html>

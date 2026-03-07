@@ -72,6 +72,10 @@ public class SysUser {
     @Builder.Default
     private String lockYn = "N";
 
+    /** 잠금 일시 (자동 해제 기준) */
+    @Column(name = "locked_at")
+    private LocalDateTime lockedAt;
+
     /** 로그인 연속 실패 횟수 */
     @Column(name = "login_fail_count", nullable = false)
     @Builder.Default

@@ -15,7 +15,7 @@
 | 6 | 메뉴 관리 페이지 (ADMIN) | ✅ 완료 | menu |
 | 7 | 보안 이벤트 로깅 | ✅ 완료 | common.security |
 | 8 | 다국어(i18n) 지원 | ✅ 완료 | common.web |
-| 9 | 대시보드 | ✅ 완료 (골격) | dashboard |
+| 9 | 대시보드 | ✅ 완료 | dashboard |
 | 10 | 에러 페이지 (404, 500) | ✅ 완료 | templates/error |
 | 11 | 사용자 관리 (목록/등록/수정/삭제) | ✅ 완료 | user |
 | 12 | 관리자 계정 관리 | ✅ 완료 | admin |
@@ -26,7 +26,7 @@
 | 17 | 직급 관리 (CRUD + 이력) | ✅ 완료 | grade, orghistory |
 | 18 | 직책 관리 (CRUD + 이력) | ✅ 완료 | comprole, orghistory |
 | 19 | 부서장 관리 | ✅ 완료 | depthead |
-| 20 | 비밀번호 정책 관리 | ✅ 완료 | policy |
+| 20 | 통합 정책 관리 (7카테고리 60+항목) | ✅ 완료 | policy |
 | 21 | 로그인 이력 조회 | ✅ 완료 | history |
 | 22 | 사용자 계정 이력 조회 | ✅ 완료 | history |
 | 23 | 클라이언트 관리 (CRUD + 계층 트리) | ✅ 완료 | client |
@@ -34,6 +34,7 @@
 | 25 | 권한 관리 (클라이언트별 CRUD + 계층 트리) | ✅ 완료 | permission |
 | 26 | 권한 설정 (권한↔역할 N:N 배정/해제) | ✅ 완료 | permrole |
 | 27 | 권한 사용자 (부서/개인/직급/직위/예외 배정 + 유효사용자 계산) | ✅ 완료 | permsubject |
+| 28 | IP/MAC 접근 제어 (필터, 화이트리스트, 차단 이력) | ✅ 완료 | accesscontrol |
 
 ---
 
@@ -56,12 +57,18 @@
 권한 관리             (id=4, ADMIN)
   ├── 역할 관리         /auth/role
   ├── 권한 관리         /auth/permission
-  ├── 접근 제어         # (미구현)
+  ├── 접근 제어         /auth/access-control   ← NEW
   ├── 권한 설정         /auth/setting
   └── 권한 사용자       /auth/perm-user
 인증 관리             (id=5, ADMIN) → 전부 # (미구현)
 정책 관리             (id=6, ADMIN)
-  └── 비밀번호 정책     /policy/password
+  ├── 관리자 정책       /policy/manage/admin   ← NEW
+  ├── 사용자 정책       /policy/manage/user    ← NEW
+  ├── 비밀번호 정책     /policy/manage/password
+  ├── 로그인 정책       /policy/manage/login   ← NEW
+  ├── 계정 보안         /policy/manage/account ← NEW
+  ├── 감사 로그         /policy/manage/audit   ← NEW
+  └── 시스템 보안       /policy/manage/system  ← NEW
 시스템 연계           (id=7, ADMIN) → 전부 # (미구현)
 감사/이력관리         (id=8, ADMIN)
   ├── 로그인 이력       /history/login
@@ -254,11 +261,106 @@ POST /org/api/{domain}/{oid}/delete             ← 소프트 삭제
 
 ---
 
-### 10. 비밀번호 정책 관리
+### 10. 통합 정책 관리
 
-**URL:** `GET /policy/password`
-**테이블:** `ids_iam_pwd_policy` (policy_key / policy_value)
-**현재 정책:** `MAX_LOGIN_FAIL_COUNT=5`
+**URL:** `GET /policy/manage/{tab}` (tab = admin|user|password|login|account|audit|system|history)
+**테이블:** `ids_iam_policy` (policy_group + policy_key 복합PK, policy_value, value_type)
+**이력 테이블:** `ids_iam_policy_hist`
+**기존 호환:** `ids_iam_pwd_policy` 유지, `PasswordPolicyService`가 `SystemPolicyService`에 위임
+
+#### 7개 카테고리 / 60개 항목
+| 그룹 | 항목 수 | 주요 정책 |
+|------|---------|----------|
+| ADMIN_POLICY | 8 | 관리자 MFA, 비밀번호 변경 주기, 최대 실패 횟수, 잠금 자동 해제 |
+| USER_POLICY | 8 | ID 길이/형식, 하드삭제 여부, 휴면 일수 |
+| PASSWORD_POLICY | 21 | 비밀번호 복잡도, 이력, 초기화 방식, 최대 실패 횟수 |
+| LOGIN_POLICY | 7 | 중복 로그인, 이력 보존 기간, IP 제한 |
+| ACCOUNT_POLICY | 8 | 잠금 자동 해제, OTP/FIDO/디바이스 인증 |
+| AUDIT_POLICY | 5 | 각 이력 자동 삭제 주기 |
+| SYSTEM_POLICY | 9 | 세션 타임아웃, API Rate Limit, 파일 업로드, CORS/CSRF |
+
+#### 실제 연동 정책
+| 정책 키 | 연동 위치 |
+|---------|----------|
+| MAX_LOGIN_FAIL_COUNT / ADMIN_MAX_LOGIN_FAIL | `SysUserService.handleLoginFailure()` 역할 분기 |
+| PWD_MIN/MAX_LEN, 복잡도, 연속문자, 금지어 | `SysUserService.validatePassword()` |
+| USER_ID_MIN/MAX_LEN, REQUIRE_LETTER 등 | `SysUserService.validateUserId()` |
+| PWD_RESET_TYPE (FIXED/RANDOM) | `SysUserService.getInitialPassword()` |
+| USER_HARD_DELETE | `SysUserService.deleteUser()` soft/hard 분기 |
+| USER_DORMANT_DAYS | `DashboardService.getSecurityAlerts()` |
+| ACCT_LOCK_AUTO_RELEASE / ADMIN_LOCK_AUTO_RELEASE_MINS | `AccountPolicyScheduler` (@Scheduled 1분) |
+| IP_ACCESS_CONTROL_ENABLED / MAC_ACCESS_CONTROL_ENABLED | `AccessControlFilter` |
+
+#### 주요 신규 파일
+```
+com/idstory/policy/entity/SystemPolicy.java          (@IdClass 복합PK)
+com/idstory/policy/entity/SystemPolicyId.java
+com/idstory/policy/entity/SystemPolicyHistory.java
+com/idstory/policy/repository/SystemPolicyRepository.java
+com/idstory/policy/repository/SystemPolicyHistoryRepository.java
+com/idstory/policy/service/SystemPolicyService.java
+com/idstory/policy/controller/PolicyManageController.java
+com/idstory/policy/scheduler/AccountPolicyScheduler.java
+templates/main/policy/manage.html
+```
+
+#### 체크박스 버그 수정
+- **원인**: `@RequestParam Map<String, String>` → 중복 키에서 첫 번째 값만 저장
+  - hidden(value=false) + checkbox(value=true) 구조에서 항상 "false"로 저장
+- **수정**: `@RequestParam MultiValueMap<String, String>` + `vals.get(vals.size()-1)` 로 마지막 값 사용
+
+---
+
+### 18. IP/MAC 접근 제어
+
+**URL:** `GET /auth/access-control`
+**테이블:** `ids_iam_access_control` (규칙), `ids_iam_access_control_hist` (차단 이력)
+
+#### 동작 방식
+| 상태 | 등록된 규칙 | 결과 |
+|------|------------|------|
+| 비활성화 | 관계없음 | 모두 허용 |
+| 활성화 | **없음** | 모두 허용 (잠금 방지 fail-open) |
+| 활성화 | **있음** | 등록된 항목만 허용, 나머지 차단 → `/access-denied` 리다이렉트 |
+
+#### IP 제어 특징
+- IP 추출 순서: `X-Forwarded-For` → `X-Real-IP` → `getRemoteAddr()`
+- CIDR 지원: `BigInteger` 비트 마스킹으로 IPv4(32bit)/IPv6(128bit) 순수 Java 구현
+
+#### MAC 제어 특징
+- `X-Device-MAC` HTTP 헤더로 MAC 전달 (클라이언트 에이전트/VPN 주입 필요)
+- `AA:BB:CC:DD:EE:FF` 대문자 콜론 형식으로 정규화 후 비교
+
+#### 구현 키 포인트
+- `@Component` + `FilterRegistrationBean.setEnabled(false)` → 이중 등록 방지
+- `@Lazy AccessControlService` 주입 → SecurityConfig 순환 의존성 방지
+- 필터 우회: `/css/`, `/js/`, `/login`, `/logout`, `/access-denied`, `/auth/access-control/**`
+
+#### 신규 파일
+```
+com/idstory/accesscontrol/entity/AccessControlRule.java
+com/idstory/accesscontrol/entity/AccessControlHist.java
+com/idstory/accesscontrol/repository/AccessControlRuleRepository.java
+com/idstory/accesscontrol/repository/AccessControlHistRepository.java
+com/idstory/accesscontrol/service/AccessControlService.java
+com/idstory/accesscontrol/filter/AccessControlFilter.java
+com/idstory/accesscontrol/controller/AccessControlController.java
+com/idstory/accesscontrol/controller/AccessDeniedPageController.java
+templates/main/auth/access-control.html
+templates/error/access-denied.html
+```
+
+#### 수정 파일
+```
+com/idstory/common/security/SecurityConfig.java   (필터 등록 + /access-denied permitAll)
+com/idstory/user/entity/SysUser.java              (lockedAt 필드 추가)
+com/idstory/user/service/SysUserService.java      (정책 연동, validateUserId/Password, lockedAt)
+com/idstory/user/repository/SysUserRepository.java (findDormantUsers, findLockedBefore)
+com/idstory/dashboard/service/DashboardService.java (USER_DORMANT_DAYS 정책 조회)
+com/idstory/IdstoryApplication.java               (@EnableScheduling)
+scripts/schema.sql                                (신규 테이블 4개, locked_at 컬럼)
+scripts/data.sql                                  (정책 7개 서브메뉴, 초기 60개 정책 데이터)
+```
 
 ---
 
@@ -392,9 +494,12 @@ GET  /auth/perm-user/user-perms?userOid=       ← 사용자별 권한 현황
 - EXCEPTION: 최종 집합에서 제외
 - GRADE/POSITION: `ids_iam_user`에 직급/직위 컬럼 없어 **계산 불가** → `hasGradeOrPositionRule=true` 플래그 반환 + 경고 배너 표시
 
-**사용자별 권한 현황 (getUserPerms)**
-- 직접 배정(USER), 부서 경유(DEPT - 자신 및 상위 부서 탐색), 예외 제외(EXCEPTION) 세 구분으로 반환
-- `user/list.html` 각 행의 🛡 권한 확인 버튼으로 진입
+**사용자별 권한 현황 (getUserPermissions)**
+- `GET /auth/perm-user/user-perms?userOid=` 호출 → 사용자의 모든 권한 반환
+- **직접 배정** (`ids_iam_role_user`): assignedVia="직접"
+- **간접 배정** (`ids_iam_role_subject`: DEPT/GRADE/POSITION 경유): assignedVia="간접"
+- 두 경로 통합 후 중복 역할은 직접 배정 우선
+- `user/list.html` 각 행의 🛡 권한 확인 버튼으로 진입 → 시스템|권한명|역할명|배정방식 4열 모달 표시
 
 **DB 테이블:** `ids_iam_perm_subject`
 ```
@@ -411,10 +516,9 @@ created_at, created_by
 
 | 항목 | 비고 |
 |------|------|
-| 접근 제어 (`/auth/**`) | 메뉴·URL 접근 정책 |
 | 인증 관리 (`/auth-policy/**`) | MFA, 세션 관리 |
 | 시스템 연계 (`/integration/**`) | SSO, API 관리 |
 | 통계/리포트 (`/stats/**`) | 사용자·접근 통계 |
-| 대시보드 콘텐츠 | 통계 카드, 최근 로그 |
 | 비밀번호 초기화 이메일 | JavaMailSender 연동 |
 | 사용자 그룹 관리 | `/user/group` |
+| 정책 UI 전용 항목 실제 연동 | OTP/FIDO, 감사 로그 자동 삭제 스케줄러, 이상 로그인 탐지 |

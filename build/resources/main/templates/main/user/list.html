@@ -1001,59 +1001,52 @@ function openUserPermsModal(userOid, userName) {
 
 function renderUserPerms(data) {
     const el = document.getElementById('permsModalBody');
-    const direct    = data.direct    || [];
-    const viaDept   = data.viaDept   || [];
-    const exceptions = data.exceptions || [];
-    const total = direct.length + viaDept.length;
+    const rows = data.rows || [];
 
-    if (total === 0 && exceptions.length === 0) {
+    // 모달 배지에 ID / 이름 표시
+    const badge = document.getElementById('permsModalUserBadge');
+    if (data.userId) {
+        badge.textContent = `${data.userId} / ${data.userName || ''}`;
+    }
+
+    if (rows.length === 0) {
         el.innerHTML = '<div style="color:#9ca3af;font-size:.85rem;padding:.5rem;">배정된 권한이 없습니다.</div>';
         return;
     }
 
-    const rowHtml = (list) => list.map(p => `
+    const tableStyle = 'width:100%;border-collapse:collapse;font-size:.85rem;';
+    const thStyle = 'padding:.4rem .6rem;text-align:left;color:#374151;font-weight:600;background:#f9fafb;border-bottom:2px solid #e5e7eb;';
+    const tdBase  = 'padding:.35rem .6rem;border-bottom:1px solid #f3f4f6;';
+
+    const viaBadge = (via) => {
+        const isDirect = via === '직접';
+        return `<span style="font-size:.72rem;padding:.1rem .45rem;border-radius:4px;font-weight:600;
+                   background:${isDirect ? '#eff6ff' : '#f0fdf4'};
+                   color:${isDirect ? '#1d4ed8' : '#15803d'};">${via || ''}</span>`;
+    };
+
+    const rowHtml = rows.map(r => `
         <tr>
-            <td style="padding:.35rem .6rem;font-weight:600;color:#1d4ed8;">${p.permName}</td>
-            <td style="padding:.35rem .6rem;color:#6b7280;font-size:.82rem;">${p.permCode}</td>
-            <td style="padding:.35rem .6rem;font-size:.82rem;">${p.assignType}</td>
+            <td style="${tdBase}font-size:.82rem;color:#6b7280;">${r.clientName || ''}</td>
+            <td style="${tdBase}font-weight:600;color:#1d4ed8;">${r.permName || ''}</td>
+            <td style="${tdBase}font-size:.82rem;color:#374151;">${r.roleName || ''}</td>
+            <td style="${tdBase}text-align:center;">${viaBadge(r.assignedVia)}</td>
         </tr>`).join('');
 
-    const tableStyle = 'width:100%;border-collapse:collapse;font-size:.85rem;';
-    const thStyle = 'padding:.35rem .6rem;text-align:left;color:#374151;font-weight:600;background:#f9fafb;border-bottom:1px solid #e5e7eb;';
-
-    let html = '';
-
-    if (direct.length > 0 || viaDept.length > 0) {
-        html += `<div style="font-size:.8rem;font-weight:700;color:#374151;margin-bottom:.4rem;">
-                     <i class="fas fa-shield-halved" style="color:#2563eb;margin-right:.3rem;"></i>
-                     보유 권한 (${total}건)
-                 </div>
-                 <table style="${tableStyle}">
-                     <thead><tr>
-                         <th style="${thStyle}">권한명</th>
-                         <th style="${thStyle}">코드</th>
-                         <th style="${thStyle}">배정 방식</th>
-                     </tr></thead>
-                     <tbody>${rowHtml([...direct, ...viaDept])}</tbody>
-                 </table>`;
-    }
-
-    if (exceptions.length > 0) {
-        html += `<div style="font-size:.8rem;font-weight:700;color:#991b1b;margin:.9rem 0 .4rem;">
-                     <i class="fas fa-ban" style="margin-right:.3rem;"></i>
-                     예외 제외 권한 (${exceptions.length}건)
-                 </div>
-                 <table style="${tableStyle}">
-                     <thead><tr>
-                         <th style="${thStyle}">권한명</th>
-                         <th style="${thStyle}">코드</th>
-                         <th style="${thStyle}">배정 방식</th>
-                     </tr></thead>
-                     <tbody>${rowHtml(exceptions)}</tbody>
-                 </table>`;
-    }
-
-    el.innerHTML = html || '<div style="color:#9ca3af;font-size:.85rem;padding:.5rem;">배정된 권한이 없습니다.</div>';
+    el.innerHTML = `
+        <div style="font-size:.8rem;font-weight:700;color:#374151;margin-bottom:.5rem;">
+            <i class="fas fa-shield-halved" style="color:#7c3aed;margin-right:.3rem;"></i>
+            보유 권한 (${rows.length}건)
+        </div>
+        <table style="${tableStyle}">
+            <thead><tr>
+                <th style="${thStyle}">시스템</th>
+                <th style="${thStyle}">권한명</th>
+                <th style="${thStyle}">역할명</th>
+                <th style="${thStyle}text-align:center;">배정 방식</th>
+            </tr></thead>
+            <tbody>${rowHtml}</tbody>
+        </table>`;
 }
 
 /* ═══════════════════════════════════════════════════════════════

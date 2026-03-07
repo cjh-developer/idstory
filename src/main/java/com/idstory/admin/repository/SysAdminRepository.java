@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -43,4 +45,8 @@ public interface SysAdminRepository extends JpaRepository<SysAdmin, String> {
 
     @Query("select a from SysAdmin a join fetch a.user where a.adminOid = :adminOid")
     Optional<SysAdmin> findAdminWithUser(@Param("adminOid") String adminOid);
+
+    /** 최근 N일 이내 관리자 권한 부여 목록 (대시보드 알림용) */
+    @Query("SELECT a FROM SysAdmin a JOIN FETCH a.user u WHERE u.deletedAt IS NULL AND a.grantedAt >= :since ORDER BY a.grantedAt DESC")
+    List<SysAdmin> findRecentGrants(@Param("since") LocalDateTime since);
 }

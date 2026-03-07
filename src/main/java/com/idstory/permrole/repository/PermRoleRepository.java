@@ -15,6 +15,8 @@ public interface PermRoleRepository extends JpaRepository<PermRole, String> {
 
     List<PermRole> findByPermOid(String permOid);
 
+    List<PermRole> findByRoleOidIn(List<String> roleOids);
+
     Optional<PermRole> findByPermOidAndRoleOid(String permOid, String roleOid);
 
     void deleteByPermOidAndRoleOid(String permOid, String roleOid);

@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{include/layout :: head('정책 관리')}"></head>
+<body>
+
+<header th:replace="~{include/header :: header}"></header>
+
+<div class="app-body">
+    <aside th:replace="~{include/sidebar :: sidebar}"></aside>
+
+    <main class="app-content">
+
+        <!-- 페이지 헤더 -->
+        <div class="page-header">
+            <div>
+                <div class="breadcrumb-area">
+                    <i class="fas fa-house"></i>
+                    <i class="fas fa-chevron-right"></i>
+                    <span>정책 관리</span>
+                    <i class="fas fa-chevron-right"></i>
+                    <span th:switch="${activeTab}">
+                        <span th:case="'admin'">관리자 정책</span>
+                        <span th:case="'user'">사용자 정책</span>
+                        <span th:case="'password'">비밀번호 정책</span>
+                        <span th:case="'login'">로그인 정책</span>
+                        <span th:case="'account'">계정 보안</span>
+                        <span th:case="'audit'">감사 로그</span>
+                        <span th:case="'system'">시스템 보안</span>
+                        <span th:case="*">변경 이력</span>
+                    </span>
+                </div>
+                <h2 class="page-title">정책 관리</h2>
+                <p class="page-subtitle">시스템 보안 및 운영 정책을 설정합니다.</p>
+            </div>
+        </div>
+
+        <!-- 알림 -->
+        <div th:if="${successMsg}" class="alert alert-success" style="margin-bottom:1rem;">
+            <i class="fas fa-circle-check"></i>
+            <span th:text="${successMsg}"></span>
+        </div>
+        <div th:if="${errorMsg}" class="alert alert-danger" style="margin-bottom:1rem;">
+            <i class="fas fa-circle-exclamation"></i>
+            <span th:text="${errorMsg}"></span>
+        </div>
+
+        <!-- 탭 네비게이션 -->
+        <div class="card" style="margin-bottom:0;border-bottom:none;border-radius:10px 10px 0 0;">
+            <div style="display:flex;gap:0;border-bottom:2px solid var(--blue-500,#2563eb);overflow-x:auto;">
+                <a th:href="@{/policy/manage/admin}"
+                   th:classappend="${activeTab == 'admin'} ? ' tab-active' : ''"
+                   class="policy-tab">
+                    <i class="fas fa-user-shield"></i> 관리자
+                </a>
+                <a th:href="@{/policy/manage/user}"
+                   th:classappend="${activeTab == 'user'} ? ' tab-active' : ''"
+                   class="policy-tab">
+                    <i class="fas fa-users"></i> 사용자
+                </a>
+                <a th:href="@{/policy/manage/password}"
+                   th:classappend="${activeTab == 'password'} ? ' tab-active' : ''"
+                   class="policy-tab">
+                    <i class="fas fa-lock"></i> 비밀번호
+                </a>
+                <a th:href="@{/policy/manage/login}"
+                   th:classappend="${activeTab == 'login'} ? ' tab-active' : ''"
+                   class="policy-tab">
+                    <i class="fas fa-right-to-bracket"></i> 로그인
+                </a>
+                <a th:href="@{/policy/manage/account}"
+                   th:classappend="${activeTab == 'account'} ? ' tab-active' : ''"
+                   class="policy-tab">
+                    <i class="fas fa-shield-halved"></i> 계정 보안
+                </a>
+                <a th:href="@{/policy/manage/audit}"
+                   th:classappend="${activeTab == 'audit'} ? ' tab-active' : ''"
+                   class="policy-tab">
+                    <i class="fas fa-clock-rotate-left"></i> 감사 로그
+                </a>
+                <a th:href="@{/policy/manage/system}"
+                   th:classappend="${activeTab == 'system'} ? ' tab-active' : ''"
+                   class="policy-tab">
+                    <i class="fas fa-gear"></i> 시스템 보안
+                </a>
+                <a th:href="@{/policy/manage/history}"
+                   th:classappend="${activeTab == 'history'} ? ' tab-active' : ''"
+                   class="policy-tab">
+                    <i class="fas fa-list"></i> 변경 이력
+                </a>
+            </div>
+        </div>
+
+        <!-- ======================================================
+             변경 이력 탭
+        ====================================================== -->
+        <div th:if="${activeTab == 'history'}" class="card" style="border-radius:0 0 10px 10px;">
+            <div class="card-header">
+                <span class="card-title"><i class="fas fa-list"></i> 정책 변경 이력 (최근 100건)</span>
+            </div>
+            <div class="card-body" style="padding:0;">
+                <table class="data-table">
+                    <thead>
+                    <tr>
+                        <th style="width:140px;">변경일시</th>
+                        <th style="width:130px;">정책 그룹</th>
+                        <th style="width:200px;">정책 키</th>
+                        <th>변경 전</th>
+                        <th>변경 후</th>
+                        <th style="width:100px;">변경자</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:if="${#lists.isEmpty(historyList)}">
+                        <td colspan="6" class="text-center text-muted" style="padding:2rem;">변경 이력이 없습니다.</td>
+                    </tr>
+                    <tr th:each="h : ${historyList}">
+                        <td th:text="${#temporals.format(h.changedAt,'yyyy-MM-dd HH:mm')}"></td>
+                        <td><span class="badge-group" th:text="${h.policyGroup}"></span></td>
+                        <td><code th:text="${h.policyKey}"></code></td>
+                        <td th:text="${h.oldValue != null ? h.oldValue : '-'}"></td>
+                        <td th:text="${h.newValue != null ? h.newValue : '-'}"></td>
+                        <td th:text="${h.changedBy}"></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ======================================================
+             정책 탭 공통 폼
+        ====================================================== -->
+        <div th:if="${activeTab != 'history'}" class="card" style="border-radius:0 0 10px 10px;">
+            <div class="card-body">
+                <form th:action="@{/policy/manage/{tab}/save(tab=${activeTab})}" method="post">
+
+                    <!-- ── 관리자 정책 ── -->
+                    <div th:if="${activeTab == 'admin'}">
+                        <div class="policy-section-title"><i class="fas fa-user-shield"></i> 관리자 정책</div>
+                        <table class="policy-table">
+                            <thead><tr><th>정책 항목</th><th>설명</th><th style="width:220px;">설정 값</th></tr></thead>
+                            <tbody>
+                            <tr>
+                                <td class="policy-key">ADMIN_MFA_ENABLED</td>
+                                <td>관리자 2차 인증 활성화
+                                    <span class="badge-locked">🔒 OTP 인프라 필요</span>
+                                </td>
+                                <td th:with="val=${policyMap['ADMIN_MFA_ENABLED']}">
+                                    <input type="hidden" name="ADMIN_MFA_ENABLED" value="false"/>
+                                    <input type="checkbox" name="ADMIN_MFA_ENABLED" value="true"
+                                           th:checked="${val == 'true'}" disabled/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">ADMIN_PWD_CHANGE_PERIOD</td>
+                                <td>비밀번호 변경 주기 (일, 0=비활성)</td>
+                                <td><input type="number" name="ADMIN_PWD_CHANGE_PERIOD" min="0" max="365"
+                                           th:value="${policyMap['ADMIN_PWD_CHANGE_PERIOD']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">ADMIN_MAX_LOGIN_FAIL</td>
+                                <td>로그인 최대 실패 횟수 (초과 시 잠금)</td>
+                                <td><input type="number" name="ADMIN_MAX_LOGIN_FAIL" min="1" max="99"
+                                           th:value="${policyMap['ADMIN_MAX_LOGIN_FAIL']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">ADMIN_LOCK_AUTO_RELEASE_MINS</td>
+                                <td>계정 잠금 자동 해제 (분, 0=비활성)</td>
+                                <td><input type="number" name="ADMIN_LOCK_AUTO_RELEASE_MINS" min="0"
+                                           th:value="${policyMap['ADMIN_LOCK_AUTO_RELEASE_MINS']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">ADMIN_MAX_IP_ALLOW</td>
+                                <td>허용 IP 수 (0=무제한)
+                                    <span class="badge-locked">🔒 IP 관리 인프라 필요</span>
+                                </td>
+                                <td><input type="number" name="ADMIN_MAX_IP_ALLOW" min="0"
+                                           th:value="${policyMap['ADMIN_MAX_IP_ALLOW']}" class="policy-input" disabled/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">ADMIN_STATUS_CHECK</td>
+                                <td>로그인 시 계정 상태 확인</td>
+                                <td th:with="val=${policyMap['ADMIN_STATUS_CHECK']}">
+                                    <input type="hidden" name="ADMIN_STATUS_CHECK" value="false"/>
+                                    <input type="checkbox" name="ADMIN_STATUS_CHECK" value="true"
+                                           th:checked="${val == 'true'}"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">ADMIN_SESSION_TIMEOUT</td>
+                                <td>세션 유지 시간 (분)
+                                    <span class="badge-locked">🔒 재시작 후 적용</span>
+                                </td>
+                                <td><input type="number" name="ADMIN_SESSION_TIMEOUT" min="1"
+                                           th:value="${policyMap['ADMIN_SESSION_TIMEOUT']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">ADMIN_ALLOW_COUNTRIES</td>
+                                <td>접속 허용 국가 (콤마 구분, 비어있으면 무제한)
+                                    <span class="badge-locked">🔒 GeoIP 인프라 필요</span>
+                                </td>
+                                <td><input type="text" name="ADMIN_ALLOW_COUNTRIES"
+                                           th:value="${policyMap['ADMIN_ALLOW_COUNTRIES']}" class="policy-input" disabled
+                                           placeholder="KR,US"/></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- ── 사용자 정책 ── -->
+                    <div th:if="${activeTab == 'user'}">
+                        <div class="policy-section-title"><i class="fas fa-users"></i> 사용자 정책</div>
+                        <table class="policy-table">
+                            <thead><tr><th>정책 항목</th><th>설명</th><th style="width:220px;">설정 값</th></tr></thead>
+                            <tbody>
+                            <tr>
+                                <td class="policy-key">USER_ID_MIN_LEN</td>
+                                <td>사용자 ID 최소 길이</td>
+                                <td><input type="number" name="USER_ID_MIN_LEN" min="1" max="50"
+                                           th:value="${policyMap['USER_ID_MIN_LEN']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">USER_ID_MAX_LEN</td>
+                                <td>사용자 ID 최대 길이</td>
+                                <td><input type="number" name="USER_ID_MAX_LEN" min="1" max="50"
+                                           th:value="${policyMap['USER_ID_MAX_LEN']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">USER_ID_REQUIRE_LETTER</td>
+                                <td>ID에 영문자 포함 필수</td>
+                                <td th:with="val=${policyMap['USER_ID_REQUIRE_LETTER']}">
+                                    <input type="hidden" name="USER_ID_REQUIRE_LETTER" value="false"/>
+                                    <input type="checkbox" name="USER_ID_REQUIRE_LETTER" value="true"
+                                           th:checked="${val == 'true'}"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">USER_ID_START_LETTER</td>
+                                <td>ID를 영문자로 시작</td>
+                                <td th:with="val=${policyMap['USER_ID_START_LETTER']}">
+                                    <input type="hidden" name="USER_ID_START_LETTER" value="false"/>
+                                    <input type="checkbox" name="USER_ID_START_LETTER" value="true"
+                                           th:checked="${val == 'true'}"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">USER_ID_REGEX</td>
+                                <td>ID 정규식 패턴 (비어있으면 미적용)</td>
+                                <td><input type="text" name="USER_ID_REGEX"
+                                           th:value="${policyMap['USER_ID_REGEX']}" class="policy-input"
+                                           placeholder="^[a-z][a-z0-9_]{3,}$"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">USER_HARD_DELETE</td>
+                                <td>사용자 하드 삭제 (false=소프트 삭제)</td>
+                                <td th:with="val=${policyMap['USER_HARD_DELETE']}">
+                                    <input type="hidden" name="USER_HARD_DELETE" value="false"/>
+                                    <input type="checkbox" name="USER_HARD_DELETE" value="true"
+                                           th:checked="${val == 'true'}"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">USER_DORMANT_DAYS</td>
+                                <td>휴면 계정 기준 미접속 일수</td>
+                                <td><input type="number" name="USER_DORMANT_DAYS" min="1"
+                                           th:value="${policyMap['USER_DORMANT_DAYS']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">USER_INACTIVE_DAYS</td>
+                                <td>비활성 계정 전환 기준 일수
+                                    <span class="badge-locked">🔒 스케줄러 미구현</span>
+                                </td>
+                                <td><input type="number" name="USER_INACTIVE_DAYS" min="1"
+                                           th:value="${policyMap['USER_INACTIVE_DAYS']}" class="policy-input"/></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- ── 비밀번호 정책 ── -->
+                    <div th:if="${activeTab == 'password'}">
+                        <div class="policy-section-title"><i class="fas fa-lock"></i> 비밀번호 정책</div>
+                        <table class="policy-table">
+                            <thead><tr><th>정책 항목</th><th>설명</th><th style="width:220px;">설정 값</th></tr></thead>
+                            <tbody>
+                            <tr>
+                                <td class="policy-key">PWD_MIN_LEN</td>
+                                <td>비밀번호 최소 길이</td>
+                                <td><input type="number" name="PWD_MIN_LEN" min="4" max="128"
+                                           th:value="${policyMap['PWD_MIN_LEN']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">PWD_MAX_LEN</td>
+                                <td>비밀번호 최대 길이</td>
+                                <td><input type="number" name="PWD_MAX_LEN" min="8" max="500"
+                                           th:value="${policyMap['PWD_MAX_LEN']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">PWD_MIN_UPPER</td>
+                                <td>대문자 최소 포함 개수 (0=미검사)</td>
+                                <td><input type="number" name="PWD_MIN_UPPER" min="0" max="10"
+                                           th:value="${policyMap['PWD_MIN_UPPER']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">PWD_MIN_LOWER</td>
+                                <td>소문자 최소 포함 개수 (0=미검사)</td>
+                                <td><input type="number" name="PWD_MIN_LOWER" min="0" max="10"
+                                           th:value="${policyMap['PWD_MIN_LOWER']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">PWD_MIN_DIGIT</td>
+                                <td>숫자 최소 포함 개수 (0=미검사)</td>
+                                <td><input type="number" name="PWD_MIN_DIGIT" min="0" max="10"
+                                           th:value="${policyMap['PWD_MIN_DIGIT']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">PWD_MIN_SPECIAL</td>
+                                <td>특수문자 최소 포함 개수 (0=미검사)</td>
+                                <td><input type="number" name="PWD_MIN_SPECIAL" min="0" max="10"
+                                           th:value="${policyMap['PWD_MIN_SPECIAL']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">PWD_ALLOWED_SPECIAL</td>
+                                <td>허용 특수문자 목록</td>
+                                <td><input type="text" name="PWD_ALLOWED_SPECIAL"
+                                           th:value="${policyMap['PWD_ALLOWED_SPECIAL']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">PWD_MAX_REPEAT</td>
+                                <td>동일 문자 최대 연속 반복 (0=미검사)</td>
+                                <td><input type="number" name="PWD_MAX_REPEAT" min="0" max="20"
+                                           th:value="${policyMap['PWD_MAX_REPEAT']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">PWD_NO_CONSECUTIVE</td>
+                                <td>연속 문자 사용 금지 (abc, 123 등)</td>
+                                <td th:with="val=${policyMap['PWD_NO_CONSECUTIVE']}">
+                                    <input type="hidden" name="PWD_NO_CONSECUTIVE" value="false"/>
+                                    <input type="checkbox" name="PWD_NO_CONSECUTIVE" value="true"
+                                           th:checked="${val == 'true'}"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">PWD_FORBIDDEN_WORDS</td>
+                                <td>금지 단어 목록 (콤마 구분)</td>
+                                <td><input type="text" name="PWD_FORBIDDEN_WORDS"
+                                           th:value="${policyMap['PWD_FORBIDDEN_WORDS']}" class="policy-input"
+                                           placeholder="admin,password,1234"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">PWD_HISTORY_COUNT</td>
+                                <td>이전 비밀번호 재사용 금지 개수 (0=미검사)
+                                    <span class="badge-locked">🔒 이력 테이블 필요</span>
+                                </td>
+                                <td><input type="number" name="PWD_HISTORY_COUNT" min="0" max="24"
+                                           th:value="${policyMap['PWD_HISTORY_COUNT']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">PWD_CHANGE_PERIOD</td>
+                                <td>비밀번호 변경 주기 (일, 0=비활성)</td>
+                                <td><input type="number" name="PWD_CHANGE_PERIOD" min="0" max="365"
+                                           th:value="${policyMap['PWD_CHANGE_PERIOD']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">PWD_EXTEND_PERIOD</td>
+                                <td>만료 후 연장 가능 일수</td>
+                                <td><input type="number" name="PWD_EXTEND_PERIOD" min="0" max="30"
+                                           th:value="${policyMap['PWD_EXTEND_PERIOD']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">MAX_LOGIN_FAIL_COUNT</td>
+                                <td>로그인 최대 실패 횟수 (초과 시 잠금)</td>
+                                <td><input type="number" name="MAX_LOGIN_FAIL_COUNT" min="1" max="99"
+                                           th:value="${policyMap['MAX_LOGIN_FAIL_COUNT']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">PWD_MAX_FAIL_LOCK</td>
+                                <td>최대 실패 시 계정 잠금 활성화</td>
+                                <td th:with="val=${policyMap['PWD_MAX_FAIL_LOCK']}">
+                                    <input type="hidden" name="PWD_MAX_FAIL_LOCK" value="false"/>
+                                    <input type="checkbox" name="PWD_MAX_FAIL_LOCK" value="true"
+                                           th:checked="${val == 'true'}"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">PWD_RESET_TYPE</td>
+                                <td>초기화 비밀번호 방식</td>
+                                <td>
+                                    <select name="PWD_RESET_TYPE" class="policy-input">
+                                        <option value="FIXED" th:selected="${policyMap['PWD_RESET_TYPE'] == 'FIXED'}">고정값 (FIXED)</option>
+                                        <option value="RANDOM" th:selected="${policyMap['PWD_RESET_TYPE'] == 'RANDOM'}">랜덤 생성 (RANDOM)</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">PWD_RESET_VALUE</td>
+                                <td>초기화 비밀번호 고정값 (FIXED 방식 시 사용)</td>
+                                <td><input type="text" name="PWD_RESET_VALUE"
+                                           th:value="${policyMap['PWD_RESET_VALUE']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">PWD_SALT_ENABLED</td>
+                                <td>비밀번호 Salt 사용 (XML 설정과 연동)
+                                    <span class="badge-locked">🔒 XML 설정 재시작 필요</span>
+                                </td>
+                                <td th:with="val=${policyMap['PWD_SALT_ENABLED']}">
+                                    <input type="hidden" name="PWD_SALT_ENABLED" value="false"/>
+                                    <input type="checkbox" name="PWD_SALT_ENABLED" value="true"
+                                           th:checked="${val == 'true'}" disabled/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">PWD_SALT_LEN</td>
+                                <td>Salt 길이 (RANDOM 방식 시)</td>
+                                <td><input type="number" name="PWD_SALT_LEN" min="4" max="64"
+                                           th:value="${policyMap['PWD_SALT_LEN']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">PWD_MIN_SCORE</td>
+                                <td>최소 비밀번호 강도 점수 (0=미검사)
+                                    <span class="badge-locked">🔒 강도계산 라이브러리 필요</span>
+                                </td>
+                                <td><input type="number" name="PWD_MIN_SCORE" min="0" max="100"
+                                           th:value="${policyMap['PWD_MIN_SCORE']}" class="policy-input" disabled/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">PWD_CHECK_PERIOD</td>
+                                <td>비밀번호 강도 검사 주기 (일, 0=미검사)</td>
+                                <td><input type="number" name="PWD_CHECK_PERIOD" min="0" max="365"
+                                           th:value="${policyMap['PWD_CHECK_PERIOD']}" class="policy-input"/></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- ── 로그인 정책 ── -->
+                    <div th:if="${activeTab == 'login'}">
+                        <div class="policy-section-title"><i class="fas fa-right-to-bracket"></i> 로그인 정책</div>
+                        <table class="policy-table">
+                            <thead><tr><th>정책 항목</th><th>설명</th><th style="width:220px;">설정 값</th></tr></thead>
+                            <tbody>
+                            <tr>
+                                <td class="policy-key">DUPLICATE_MAX</td>
+                                <td>중복 로그인 최대 허용 수 (1=단일 세션)
+                                    <span class="badge-locked">🔒 세션 관리 인프라 필요</span>
+                                </td>
+                                <td><input type="number" name="DUPLICATE_MAX" min="1" max="10"
+                                           th:value="${policyMap['DUPLICATE_MAX']}" class="policy-input" disabled/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">DUPLICATE_ACTION</td>
+                                <td>중복 로그인 처리 방식
+                                    <span class="badge-locked">🔒 세션 관리 인프라 필요</span>
+                                </td>
+                                <td>
+                                    <select name="DUPLICATE_ACTION" class="policy-input" disabled>
+                                        <option value="LOGOUT" th:selected="${policyMap['DUPLICATE_ACTION'] == 'LOGOUT'}">기존 세션 종료</option>
+                                        <option value="EXCEPTION" th:selected="${policyMap['DUPLICATE_ACTION'] == 'EXCEPTION'}">신규 로그인 차단</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">HIST_KEEP_DAYS</td>
+                                <td>로그인 이력 보관 일수</td>
+                                <td><input type="number" name="HIST_KEEP_DAYS" min="1"
+                                           th:value="${policyMap['HIST_KEEP_DAYS']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">ATTEMPT_LIMIT</td>
+                                <td>시간당 로그인 시도 제한 (0=무제한)
+                                    <span class="badge-locked">🔒 Rate Limiting 인프라 필요</span>
+                                </td>
+                                <td><input type="number" name="ATTEMPT_LIMIT" min="0"
+                                           th:value="${policyMap['ATTEMPT_LIMIT']}" class="policy-input" disabled/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">IP_RESTRICTION</td>
+                                <td>IP 제한 활성화
+                                    <span class="badge-locked">🔒 IP 관리 인프라 필요</span>
+                                </td>
+                                <td th:with="val=${policyMap['IP_RESTRICTION']}">
+                                    <input type="hidden" name="IP_RESTRICTION" value="false"/>
+                                    <input type="checkbox" name="IP_RESTRICTION" value="true"
+                                           th:checked="${val == 'true'}" disabled/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">BLOCK_COUNTRIES</td>
+                                <td>접속 차단 국가 (콤마 구분)
+                                    <span class="badge-locked">🔒 GeoIP 인프라 필요</span>
+                                </td>
+                                <td><input type="text" name="BLOCK_COUNTRIES"
+                                           th:value="${policyMap['BLOCK_COUNTRIES']}" class="policy-input" disabled
+                                           placeholder="CN,RU"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">ANOMALY_DETECT</td>
+                                <td>이상 로그인 탐지 활성화
+                                    <span class="badge-locked">🔒 탐지 엔진 필요</span>
+                                </td>
+                                <td th:with="val=${policyMap['ANOMALY_DETECT']}">
+                                    <input type="hidden" name="ANOMALY_DETECT" value="false"/>
+                                    <input type="checkbox" name="ANOMALY_DETECT" value="true"
+                                           th:checked="${val == 'true'}" disabled/>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- ── 계정 보안 ── -->
+                    <div th:if="${activeTab == 'account'}">
+                        <div class="policy-section-title"><i class="fas fa-shield-halved"></i> 계정 보안</div>
+                        <table class="policy-table">
+                            <thead><tr><th>정책 항목</th><th>설명</th><th style="width:220px;">설정 값</th></tr></thead>
+                            <tbody>
+                            <tr>
+                                <td class="policy-key">ACCT_LOCK_PERIOD</td>
+                                <td>계정 잠금 기간 (일, 0=무기한)</td>
+                                <td><input type="number" name="ACCT_LOCK_PERIOD" min="0"
+                                           th:value="${policyMap['ACCT_LOCK_PERIOD']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">ACCT_LOCK_AUTO_RELEASE</td>
+                                <td>계정 잠금 자동 해제 (분, 0=비활성)</td>
+                                <td><input type="number" name="ACCT_LOCK_AUTO_RELEASE" min="0"
+                                           th:value="${policyMap['ACCT_LOCK_AUTO_RELEASE']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">ACCT_LOCK_ADMIN_ONLY</td>
+                                <td>잠금 해제 관리자만 가능</td>
+                                <td th:with="val=${policyMap['ACCT_LOCK_ADMIN_ONLY']}">
+                                    <input type="hidden" name="ACCT_LOCK_ADMIN_ONLY" value="false"/>
+                                    <input type="checkbox" name="ACCT_LOCK_ADMIN_ONLY" value="true"
+                                           th:checked="${val == 'true'}"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">ACCT_STATUS_CHECK</td>
+                                <td>로그인 시 계정 상태 확인</td>
+                                <td th:with="val=${policyMap['ACCT_STATUS_CHECK']}">
+                                    <input type="hidden" name="ACCT_STATUS_CHECK" value="false"/>
+                                    <input type="checkbox" name="ACCT_STATUS_CHECK" value="true"
+                                           th:checked="${val == 'true'}"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">ACCT_AUTH_METHOD</td>
+                                <td>인증 방식</td>
+                                <td>
+                                    <select name="ACCT_AUTH_METHOD" class="policy-input">
+                                        <option value="PASSWORD" th:selected="${policyMap['ACCT_AUTH_METHOD'] == 'PASSWORD'}">비밀번호</option>
+                                        <option value="OTP" th:selected="${policyMap['ACCT_AUTH_METHOD'] == 'OTP'}" disabled>OTP (미구현)</option>
+                                        <option value="FIDO" th:selected="${policyMap['ACCT_AUTH_METHOD'] == 'FIDO'}" disabled>FIDO (미구현)</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">ACCT_OTP_ENABLED</td>
+                                <td>OTP 인증 활성화
+                                    <span class="badge-locked">🔒 OTP 서버 필요</span>
+                                </td>
+                                <td th:with="val=${policyMap['ACCT_OTP_ENABLED']}">
+                                    <input type="hidden" name="ACCT_OTP_ENABLED" value="false"/>
+                                    <input type="checkbox" name="ACCT_OTP_ENABLED" value="true"
+                                           th:checked="${val == 'true'}" disabled/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">ACCT_FIDO_ENABLED</td>
+                                <td>FIDO 인증 활성화
+                                    <span class="badge-locked">🔒 FIDO 서버 필요</span>
+                                </td>
+                                <td th:with="val=${policyMap['ACCT_FIDO_ENABLED']}">
+                                    <input type="hidden" name="ACCT_FIDO_ENABLED" value="false"/>
+                                    <input type="checkbox" name="ACCT_FIDO_ENABLED" value="true"
+                                           th:checked="${val == 'true'}" disabled/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">ACCT_DEVICE_AUTH</td>
+                                <td>디바이스 인증 활성화
+                                    <span class="badge-locked">🔒 디바이스 관리 인프라 필요</span>
+                                </td>
+                                <td th:with="val=${policyMap['ACCT_DEVICE_AUTH']}">
+                                    <input type="hidden" name="ACCT_DEVICE_AUTH" value="false"/>
+                                    <input type="checkbox" name="ACCT_DEVICE_AUTH" value="true"
+                                           th:checked="${val == 'true'}" disabled/>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- ── 감사 로그 정책 ── -->
+                    <div th:if="${activeTab == 'audit'}">
+                        <div class="policy-section-title"><i class="fas fa-clock-rotate-left"></i> 감사 로그 정책</div>
+                        <p style="font-size:.85rem;color:var(--gray-500);margin-bottom:1rem;">
+                            <i class="fas fa-circle-info"></i>
+                            이력 자동 삭제 스케줄러는 현재 미구현 상태입니다. 값을 저장해두면 추후 스케줄러 구현 시 적용됩니다.
+                        </p>
+                        <table class="policy-table">
+                            <thead><tr><th>정책 항목</th><th>설명</th><th style="width:220px;">설정 값 (일)</th></tr></thead>
+                            <tbody>
+                            <tr>
+                                <td class="policy-key">AUDIT_LOGIN_KEEP_DAYS</td>
+                                <td>로그인 이력 자동 삭제 주기</td>
+                                <td><input type="number" name="AUDIT_LOGIN_KEEP_DAYS" min="1"
+                                           th:value="${policyMap['AUDIT_LOGIN_KEEP_DAYS']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">AUDIT_PWD_CHANGE_KEEP_DAYS</td>
+                                <td>비밀번호 변경 이력 자동 삭제 주기</td>
+                                <td><input type="number" name="AUDIT_PWD_CHANGE_KEEP_DAYS" min="1"
+                                           th:value="${policyMap['AUDIT_PWD_CHANGE_KEEP_DAYS']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">AUDIT_PERM_CHANGE_KEEP_DAYS</td>
+                                <td>권한 변경 이력 자동 삭제 주기</td>
+                                <td><input type="number" name="AUDIT_PERM_CHANGE_KEEP_DAYS" min="1"
+                                           th:value="${policyMap['AUDIT_PERM_CHANGE_KEEP_DAYS']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">AUDIT_ROLE_CHANGE_KEEP_DAYS</td>
+                                <td>역할 변경 이력 자동 삭제 주기</td>
+                                <td><input type="number" name="AUDIT_ROLE_CHANGE_KEEP_DAYS" min="1"
+                                           th:value="${policyMap['AUDIT_ROLE_CHANGE_KEEP_DAYS']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">AUDIT_ACCT_KEEP_DAYS</td>
+                                <td>사용자 계정 이력 자동 삭제 주기</td>
+                                <td><input type="number" name="AUDIT_ACCT_KEEP_DAYS" min="1"
+                                           th:value="${policyMap['AUDIT_ACCT_KEEP_DAYS']}" class="policy-input"/></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- ── 시스템 보안 ── -->
+                    <div th:if="${activeTab == 'system'}">
+                        <div class="policy-section-title"><i class="fas fa-gear"></i> 시스템 보안</div>
+                        <table class="policy-table">
+                            <thead><tr><th>정책 항목</th><th>설명</th><th style="width:220px;">설정 값</th></tr></thead>
+                            <tbody>
+                            <tr>
+                                <td class="policy-key">SESSION_TIMEOUT</td>
+                                <td>세션 타임아웃 (분)
+                                    <span class="badge-locked">🔒 재시작 후 적용</span>
+                                </td>
+                                <td><input type="number" name="SESSION_TIMEOUT" min="1"
+                                           th:value="${policyMap['SESSION_TIMEOUT']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">SESSION_MAX_TIME</td>
+                                <td>세션 최대 유지 시간 (분)
+                                    <span class="badge-locked">🔒 재시작 후 적용</span>
+                                </td>
+                                <td><input type="number" name="SESSION_MAX_TIME" min="1"
+                                           th:value="${policyMap['SESSION_MAX_TIME']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">API_RATE_LIMIT</td>
+                                <td>API Rate Limit (초당 요청 수, 0=무제한)
+                                    <span class="badge-locked">🔒 Rate Limiting 인프라 필요</span>
+                                </td>
+                                <td><input type="number" name="API_RATE_LIMIT" min="0"
+                                           th:value="${policyMap['API_RATE_LIMIT']}" class="policy-input" disabled/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">FILE_UPLOAD_ENABLED</td>
+                                <td>파일 업로드 허용</td>
+                                <td th:with="val=${policyMap['FILE_UPLOAD_ENABLED']}">
+                                    <input type="hidden" name="FILE_UPLOAD_ENABLED" value="false"/>
+                                    <input type="checkbox" name="FILE_UPLOAD_ENABLED" value="true"
+                                           th:checked="${val == 'true'}"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">FILE_ALLOWED_EXT</td>
+                                <td>허용 파일 확장자 (콤마 구분)</td>
+                                <td><input type="text" name="FILE_ALLOWED_EXT"
+                                           th:value="${policyMap['FILE_ALLOWED_EXT']}" class="policy-input"
+                                           placeholder="jpg,png,pdf"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">FILE_MAX_SIZE</td>
+                                <td>파일 최대 크기 (MB)</td>
+                                <td><input type="number" name="FILE_MAX_SIZE" min="1" max="1024"
+                                           th:value="${policyMap['FILE_MAX_SIZE']}" class="policy-input"/></td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">DOWNLOAD_ENABLED</td>
+                                <td>파일 다운로드 허용</td>
+                                <td th:with="val=${policyMap['DOWNLOAD_ENABLED']}">
+                                    <input type="hidden" name="DOWNLOAD_ENABLED" value="false"/>
+                                    <input type="checkbox" name="DOWNLOAD_ENABLED" value="true"
+                                           th:checked="${val == 'true'}"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">CORS_POLICY</td>
+                                <td>CORS 정책
+                                    <span class="badge-locked">🔒 재시작 후 적용</span>
+                                </td>
+                                <td>
+                                    <select name="CORS_POLICY" class="policy-input">
+                                        <option value="SAME_ORIGIN" th:selected="${policyMap['CORS_POLICY'] == 'SAME_ORIGIN'}">동일 출처만 (SAME_ORIGIN)</option>
+                                        <option value="ALLOW_ALL" th:selected="${policyMap['CORS_POLICY'] == 'ALLOW_ALL'}">모두 허용 (ALLOW_ALL)</option>
+                                        <option value="CUSTOM" th:selected="${policyMap['CORS_POLICY'] == 'CUSTOM'}">커스텀 설정</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="policy-key">CSRF_ENABLED</td>
+                                <td>CSRF 보호 활성화
+                                    <span class="badge-locked">🔒 재시작 후 적용</span>
+                                </td>
+                                <td th:with="val=${policyMap['CSRF_ENABLED']}">
+                                    <input type="hidden" name="CSRF_ENABLED" value="false"/>
+                                    <input type="checkbox" name="CSRF_ENABLED" value="true"
+                                           th:checked="${val == 'true'}"/>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 저장 버튼 -->
+                    <div style="margin-top:1.5rem;display:flex;gap:.8rem;">
+                        <button type="submit" class="btn-modal-save">
+                            <i class="fas fa-floppy-disk"></i> 저장
+                        </button>
+                        <a th:href="@{/policy/manage/{tab}(tab=${activeTab})}" class="btn-modal-cancel">
+                            <i class="fas fa-rotate-left"></i> 초기화
+                        </a>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<footer th:replace="~{include/footer :: footer}"></footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/common.js}"></script>
+
+<style>
+.policy-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .75rem 1.1rem;
+    font-size: .87rem;
+    font-weight: 500;
+    color: var(--gray-500, #6b7280);
+    text-decoration: none;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+    transition: color .15s, border-color .15s;
+}
+.policy-tab:hover {
+    color: var(--blue-600, #2563eb);
+    text-decoration: none;
+}
+.policy-tab.tab-active {
+    color: var(--blue-600, #2563eb);
+    border-bottom-color: var(--blue-600, #2563eb);
+    font-weight: 600;
+}
+.policy-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .88rem;
+}
+.policy-table thead tr {
+    background: var(--gray-50, #f9fafb);
+    border-bottom: 1px solid var(--gray-100, #f3f4f6);
+}
+.policy-table thead th {
+    padding: .7rem 1rem;
+    text-align: left;
+    font-size: .82rem;
+    color: var(--gray-500, #6b7280);
+    font-weight: 600;
+}
+.policy-table tbody tr {
+    border-bottom: 1px solid var(--gray-100, #f3f4f6);
+}
+.policy-table tbody tr:hover {
+    background: var(--gray-50, #f9fafb);
+}
+.policy-table td {
+    padding: .75rem 1rem;
+    vertical-align: middle;
+}
+.policy-key {
+    font-family: monospace;
+    font-size: .82rem;
+    color: var(--blue-700, #1d4ed8);
+    font-weight: 600;
+    width: 240px;
+}
+.policy-input {
+    padding: .35rem .6rem;
+    border: 1px solid var(--gray-200, #e5e7eb);
+    border-radius: 6px;
+    font-size: .87rem;
+    width: 100%;
+}
+.policy-input:disabled {
+    background: var(--gray-50, #f9fafb);
+    color: var(--gray-400, #9ca3af);
+    cursor: not-allowed;
+}
+.policy-section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--gray-700, #374151);
+    margin-bottom: 1rem;
+    padding-bottom: .5rem;
+    border-bottom: 2px solid var(--blue-100, #dbeafe);
+}
+.badge-locked {
+    display: inline-block;
+    margin-left: .4rem;
+    padding: .1rem .45rem;
+    background: #fff7ed;
+    color: #c2410c;
+    border-radius: 4px;
+    font-size: .75rem;
+    font-weight: 500;
+}
+.badge-group {
+    display: inline-block;
+    padding: .15rem .5rem;
+    background: var(--blue-50, #eff6ff);
+    color: var(--blue-700, #1d4ed8);
+    border-radius: 4px;
+    font-size: .78rem;
+    font-weight: 600;
+}
+</style>
+
+</body>
+</html>

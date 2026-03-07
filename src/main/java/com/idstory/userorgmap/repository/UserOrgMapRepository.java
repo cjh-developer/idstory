@@ -23,4 +23,10 @@ public interface UserOrgMapRepository extends JpaRepository<UserOrgMap, String> 
 
     /** 겸직 중복 체크: 동일 사용자·부서·isPrimary 조합 존재 여부 */
     boolean existsByUserOidAndDeptOidAndIsPrimary(String userOid, String deptOid, String isPrimary);
+
+    /** 직급 OID로 사용자 OID 목록 조회 */
+    List<UserOrgMap> findByGradeOid(String gradeOid);
+
+    /** 직위 OID로 사용자 OID 목록 조회 */
+    List<UserOrgMap> findByPositionOid(String positionOid);
 }

@@ -1,8 +1,10 @@
 package com.idstory.common.security;
 
+import com.idstory.accesscontrol.filter.AccessControlFilter;
 import com.idstory.history.service.LoginHistoryService;
 import com.idstory.login.service.CustomUserDetailsService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -13,6 +15,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
 import org.springframework.security.web.authentication.logout.SimpleUrlLogoutSuccessHandler;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
@@ -39,13 +42,16 @@ public class SecurityConfig {
     private final CustomUserDetailsService userDetailsService;
     private final CustomPasswordEncoder passwordEncoder;
     private final LoginHistoryService loginHistoryService;
+    private final AccessControlFilter accessControlFilter;
 
     public SecurityConfig(CustomUserDetailsService userDetailsService,
                           CustomPasswordEncoder passwordEncoder,
-                          LoginHistoryService loginHistoryService) {
+                          LoginHistoryService loginHistoryService,
+                          AccessControlFilter accessControlFilter) {
         this.userDetailsService = userDetailsService;
         this.passwordEncoder = passwordEncoder;
         this.loginHistoryService = loginHistoryService;
+        this.accessControlFilter = accessControlFilter;
     }
 
     /**
@@ -58,6 +64,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
                     "/login",
+                    "/access-denied",
                     "/password-reset",
                     "/password-reset/**",
                     "/css/**",
@@ -68,6 +75,7 @@ public class SecurityConfig {
                 ).permitAll()
                 .anyRequest().authenticated()
             )
+            .addFilterBefore(accessControlFilter, UsernamePasswordAuthenticationFilter.class)
 
             // ── 폼 로그인 설정 ────────────────────────────────────────────────
             .formLogin(form -> form
@@ -133,5 +141,17 @@ public class SecurityConfig {
     public AuthenticationManager authenticationManager(
             AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
+    }
+
+    /**
+     * AccessControlFilter의 서블릿 자동 등록 비활성화
+     * (Security FilterChain에만 등록되도록 이중 실행 방지)
+     */
+    @Bean
+    public FilterRegistrationBean<AccessControlFilter> accessControlFilterRegistration(
+            AccessControlFilter filter) {
+        FilterRegistrationBean<AccessControlFilter> bean = new FilterRegistrationBean<>(filter);
+        bean.setEnabled(false);
+        return bean;
     }
 }

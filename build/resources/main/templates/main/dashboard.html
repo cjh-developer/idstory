@@ -20,68 +20,179 @@
                     <span>대시보드</span>
                 </div>
                 <h2 class="page-title">대시보드</h2>
-                <p class="page-subtitle">IDStory 시스템 현황을 확인하세요.</p>
+                <p class="page-subtitle">계정 및 권한 시스템 전반의 현황을 한눈에 확인합니다.</p>
+            </div>
+            <div style="display:flex;align-items:center;gap:.6rem;">
+                <span id="lastRefreshed" style="font-size:.78rem;color:var(--gray-400);"></span>
+                <button type="button" onclick="refreshAll()"
+                        style="display:flex;align-items:center;gap:.4rem;padding:.4rem .9rem;
+                               font-size:.82rem;font-weight:600;border:1px solid #d1d5db;border-radius:6px;
+                               background:#fff;color:#374151;cursor:pointer;">
+                    <i class="fas fa-rotate-right" id="refreshIcon"></i> 새로고침
+                </button>
             </div>
         </div>
 
-        <!-- Stat 카드 -->
-        <div class="stat-grid">
-            <div class="stat-card">
-                <div class="stat-icon-wrap stat-icon-blue">
-                    <i class="fas fa-users"></i>
-                </div>
-                <div class="stat-info">
-                    <div class="stat-label">전체 사용자</div>
-                    <div class="stat-value" th:text="${statTotal}">0</div>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon-wrap stat-icon-green">
-                    <i class="fas fa-user-check"></i>
-                </div>
-                <div class="stat-info">
-                    <div class="stat-label">활성 계정</div>
-                    <div class="stat-value" th:text="${statActive}">0</div>
+        <!-- ══════════════════════════════════════════════════════════
+             Row 1: 통계 카드 (6개)
+        ══════════════════════════════════════════════════════════ -->
+        <div class="db-stat-grid">
+
+            <div class="db-stat-card" style="--accent:#2563eb;">
+                <div class="db-stat-icon"><i class="fas fa-users"></i></div>
+                <div class="db-stat-body">
+                    <div class="db-stat-label">전체 사용자</div>
+                    <div class="db-stat-value" id="s-total" th:text="${total}">0</div>
                 </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-icon-wrap stat-icon-amber">
-                    <i class="fas fa-user-shield"></i>
-                </div>
-                <div class="stat-info">
-                    <div class="stat-label">관리자</div>
-                    <div class="stat-value" th:text="${statAdmin}">0</div>
+
+            <div class="db-stat-card" style="--accent:#16a34a;">
+                <div class="db-stat-icon" style="background:#dcfce7;color:#16a34a;"><i class="fas fa-user-check"></i></div>
+                <div class="db-stat-body">
+                    <div class="db-stat-label">활성 계정</div>
+                    <div class="db-stat-value" id="s-active" th:text="${active}">0</div>
                 </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-icon-wrap stat-icon-red">
-                    <i class="fas fa-user-slash"></i>
+
+            <div class="db-stat-card" style="--accent:#9ca3af;">
+                <div class="db-stat-icon" style="background:#f3f4f6;color:#6b7280;"><i class="fas fa-user-slash"></i></div>
+                <div class="db-stat-body">
+                    <div class="db-stat-label">비활성 계정</div>
+                    <div class="db-stat-value" id="s-inactive" th:text="${inactive}">0</div>
                 </div>
-                <div class="stat-info">
-                    <div class="stat-label">비활성 계정</div>
-                    <div class="stat-value" th:text="${statInactive}">0</div>
+            </div>
+
+            <div class="db-stat-card" style="--accent:#dc2626;">
+                <div class="db-stat-icon" style="background:#fee2e2;color:#dc2626;"><i class="fas fa-lock"></i></div>
+                <div class="db-stat-body">
+                    <div class="db-stat-label">잠금 계정</div>
+                    <div class="db-stat-value" id="s-locked" th:text="${locked}">0</div>
+                </div>
+            </div>
+
+            <div class="db-stat-card" style="--accent:#d97706;">
+                <div class="db-stat-icon" style="background:#fef3c7;color:#d97706;"><i class="fas fa-mobile-screen-button"></i></div>
+                <div class="db-stat-body">
+                    <div class="db-stat-label">MFA 미등록</div>
+                    <div class="db-stat-value" id="s-mfa-off" th:text="${mfaDisabled}">0</div>
+                </div>
+            </div>
+
+            <div class="db-stat-card" style="--accent:#7c3aed;">
+                <div class="db-stat-icon" style="background:#ede9fe;color:#7c3aed;"><i class="fas fa-user-shield"></i></div>
+                <div class="db-stat-body">
+                    <div class="db-stat-label">관리자</div>
+                    <div class="db-stat-value" id="s-admin" th:text="${adminCount}">0</div>
                 </div>
             </div>
         </div>
 
-        <!-- 환영 카드 -->
-        <div class="card">
-            <div class="card-header">
-                <span class="card-title">
-                    <i class="fas fa-circle-info"></i> 시스템 정보
-                </span>
-            </div>
-            <div class="card-body">
-                <div style="display:flex; align-items:center; gap:.6rem; margin-bottom:.9rem;">
-                    <span style="font-size:.9rem; color:var(--gray-600);">
-                        <i class="fas fa-circle-check" style="color:var(--green-600); margin-right:.35rem;"></i>
-                        로그인 성공 — 반갑습니다,
-                        <strong sec:authentication="name" style="color:var(--blue-600);">사용자</strong>님!
+        <!-- ══════════════════════════════════════════════════════════
+             Row 2: 월별 추이 + 시스템별 사용자
+        ══════════════════════════════════════════════════════════ -->
+        <div class="db-row-2">
+
+            <!-- 월별 등록 추이 -->
+            <div class="card" style="flex:2;">
+                <div class="card-header">
+                    <span class="card-title">
+                        <i class="fas fa-chart-line" style="color:#2563eb;"></i> 사용자 계정 등록 추이 (최근 12개월)
                     </span>
                 </div>
-                <p style="font-size:.855rem; color:var(--gray-500); line-height:1.65; margin:0;" th:text="#{home.description}">
-                    IDStory 시스템에 성공적으로 로그인하셨습니다.
-                </p>
+                <div class="card-body" style="padding:1rem 1.2rem;">
+                    <canvas id="trendChart" height="90"></canvas>
+                </div>
+            </div>
+
+            <!-- 시스템별 사용자 -->
+            <div class="card" style="flex:1;min-width:220px;">
+                <div class="card-header">
+                    <span class="card-title">
+                        <i class="fas fa-server" style="color:#7c3aed;"></i> 시스템별 사용자 수
+                    </span>
+                </div>
+                <div class="card-body" style="padding:.8rem 1rem;">
+                    <div id="clientUserList">
+                        <div class="db-loading">로딩 중...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════════
+             Row 3: 최근 로그인 + 계정 이벤트
+        ══════════════════════════════════════════════════════════ -->
+        <div class="db-row-2">
+
+            <!-- 최근 로그인 -->
+            <div class="card" style="flex:1;">
+                <div class="card-header">
+                    <span class="card-title">
+                        <i class="fas fa-right-to-bracket" style="color:#16a34a;"></i> 최근 로그인 현황
+                    </span>
+                    <a href="/history/login" style="font-size:.78rem;color:#6b7280;text-decoration:none;">
+                        전체 보기 <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+                <div class="card-body" style="padding:0;">
+                    <div id="recentLoginList">
+                        <div class="db-loading" style="padding:.8rem 1rem;">로딩 중...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 계정 이벤트 -->
+            <div class="card" style="flex:1;">
+                <div class="card-header">
+                    <span class="card-title">
+                        <i class="fas fa-timeline" style="color:#d97706;"></i> 계정 이벤트 로그
+                    </span>
+                    <a href="/history/user-account" style="font-size:.78rem;color:#6b7280;text-decoration:none;">
+                        전체 보기 <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+                <div class="card-body" style="padding:0;">
+                    <div id="accountEventList">
+                        <div class="db-loading" style="padding:.8rem 1rem;">로딩 중...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════════
+             Row 4: 보안 알림 + 관리자 목록
+        ══════════════════════════════════════════════════════════ -->
+        <div class="db-row-2">
+
+            <!-- 보안 알림 -->
+            <div class="card" style="flex:1;">
+                <div class="card-header">
+                    <span class="card-title">
+                        <i class="fas fa-shield-exclamation" style="color:#dc2626;"></i> 보안 알림
+                    </span>
+                </div>
+                <div class="card-body" style="padding:.8rem 1rem;">
+                    <div id="securityAlerts">
+                        <div class="db-loading">로딩 중...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 관리자 목록 -->
+            <div class="card" style="flex:1;">
+                <div class="card-header">
+                    <span class="card-title">
+                        <i class="fas fa-user-shield" style="color:#7c3aed;"></i> 관리자 권한 사용자
+                    </span>
+                    <a href="/admin/list" style="font-size:.78rem;color:#6b7280;text-decoration:none;">
+                        관리 <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+                <div class="card-body" style="padding:0;">
+                    <div id="adminList">
+                        <div class="db-loading" style="padding:.8rem 1rem;">로딩 중...</div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -90,7 +201,363 @@
 
 <footer th:replace="~{include/footer :: footer}"></footer>
 
+<style>
+/* ── 통계 카드 그리드 ── */
+.db-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: .9rem;
+    margin-bottom: 1.2rem;
+}
+@media (max-width: 1280px) { .db-stat-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 768px)  { .db-stat-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.db-stat-card {
+    background: #fff;
+    border: 1px solid var(--gray-100);
+    border-radius: 10px;
+    padding: 1rem 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: .9rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
+    border-left: 3px solid var(--accent, #2563eb);
+}
+.db-stat-icon {
+    width: 42px; height: 42px;
+    border-radius: 10px;
+    background: #dbeafe;
+    color: #2563eb;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.05rem; flex-shrink: 0;
+}
+.db-stat-label { font-size: .75rem; color: var(--gray-500); font-weight: 600; margin-bottom: .18rem; }
+.db-stat-value { font-size: 1.6rem; font-weight: 800; color: var(--gray-800); line-height: 1; }
+
+/* ── 2열 행 ── */
+.db-row-2 {
+    display: flex; gap: 1.2rem; margin-bottom: 1.2rem; align-items: stretch;
+}
+@media (max-width: 900px) { .db-row-2 { flex-direction: column; } }
+
+/* 카드 높이 균등화 */
+.db-row-2 > .card {
+    display: flex; flex-direction: column;
+}
+.db-row-2 > .card > .card-body {
+    flex: 1; min-height: 0;
+}
+
+/* 스크롤 컨테이너 */
+#recentLoginList, #accountEventList {
+    max-height: 300px; overflow-y: auto;
+}
+#securityAlerts {
+    max-height: 380px; overflow-y: auto;
+}
+#adminList {
+    max-height: 300px; overflow-y: auto;
+}
+#clientUserList {
+    max-height: 260px; overflow-y: auto;
+}
+
+/* ── 공통 로딩 ── */
+.db-loading { color: #9ca3af; font-size: .83rem; padding: .5rem 0; }
+
+/* ── 로그 테이블 ── */
+.db-log-table {
+    width: 100%; border-collapse: collapse; font-size: .82rem;
+}
+.db-log-table th {
+    padding: .35rem .7rem; text-align: left; font-weight: 600;
+    color: #374151; background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb; white-space: nowrap;
+}
+.db-log-table td {
+    padding: .32rem .7rem; border-bottom: 1px solid #f3f4f6;
+    color: #374151; vertical-align: middle;
+}
+.db-log-table tr:last-child td { border-bottom: none; }
+
+/* ── 뱃지 ── */
+.db-badge {
+    display: inline-block; padding: .1rem .45rem;
+    font-size: .7rem; font-weight: 700; border-radius: 4px;
+}
+
+/* ── 보안 알림 섹션 ── */
+.db-alert-section { margin-bottom: .9rem; }
+.db-alert-title {
+    font-size: .78rem; font-weight: 700; color: #374151;
+    margin-bottom: .4rem;
+    display: flex; align-items: center; gap: .35rem;
+}
+.db-alert-count { background:#fee2e2;color:#dc2626;font-size:.7rem;font-weight:700;padding:.05rem .4rem;border-radius:20px; }
+.db-alert-ok    { background:#dcfce7;color:#16a34a;font-size:.7rem;font-weight:700;padding:.05rem .4rem;border-radius:20px; }
+
+/* ── 클라이언트 바 ── */
+.db-client-bar { display:flex;align-items:center;gap:.6rem;margin-bottom:.55rem;font-size:.83rem; }
+.db-client-fill { height:8px;border-radius:4px;background:#2563eb;min-width:4px;transition:width .4s; }
+</style>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 <script th:src="@{/js/common.js}"></script>
+<script>
+let trendChart = null;
+
+document.addEventListener('DOMContentLoaded', loadAll);
+
+function loadAll() {
+    setRefreshing(true);
+    Promise.all([
+        loadStats(),
+        loadTrend(),
+        loadClientUsers(),
+        loadRecentLogins(),
+        loadAccountEvents(),
+        loadSecurityAlerts(),
+        loadAdmins(),
+    ]).finally(() => {
+        setRefreshing(false);
+        document.getElementById('lastRefreshed').textContent =
+            '마지막 업데이트: ' + new Date().toLocaleTimeString('ko-KR');
+    });
+}
+function refreshAll() { loadAll(); }
+
+function setRefreshing(on) {
+    document.getElementById('refreshIcon').className =
+        on ? 'fas fa-rotate-right fa-spin' : 'fas fa-rotate-right';
+}
+
+/* ── 통계 카드 ── */
+function loadStats() {
+    return fetch('/main/api/stats').then(r => r.json()).then(d => {
+        setText('s-total',   d.total);
+        setText('s-active',  d.active);
+        setText('s-inactive',d.inactive);
+        setText('s-locked',  d.locked);
+        setText('s-mfa-off', d.mfaDisabled);
+        setText('s-admin',   d.adminCount);
+    });
+}
+
+/* ── 월별 추이 차트 ── */
+function loadTrend() {
+    return fetch('/main/api/monthly-trend').then(r => r.json()).then(data => {
+        // 최근 12개월 레이블 생성 (데이터 없는 달도 0으로 표시)
+        const labels = [];
+        const now = new Date();
+        for (let i = 11; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            labels.push(`${y}-${m}`);
+        }
+        const countMap = {};
+        data.forEach(d => { countMap[d.month] = Number(d.count); });
+        const values = labels.map(m => countMap[m] || 0);
+
+        const ctx = document.getElementById('trendChart').getContext('2d');
+        if (trendChart) trendChart.destroy();
+        trendChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: '신규 등록',
+                    data: values,
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(37,99,235,.08)',
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#2563eb',
+                    tension: 0.3,
+                    fill: true,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0, font: { size: 11 } }, grid: { color: '#f3f4f6' } },
+                    x: { ticks: { font: { size: 11 } }, grid: { display: false } }
+                }
+            }
+        });
+    });
+}
+
+/* ── 시스템별 사용자 ── */
+function loadClientUsers() {
+    return fetch('/main/api/client-users').then(r => r.json()).then(data => {
+        const el = document.getElementById('clientUserList');
+        if (!data.length) { el.innerHTML = '<div class="db-loading">등록된 시스템이 없습니다.</div>'; return; }
+        const maxCount = Math.max(...data.map(d => Number(d.userCount)), 1);
+        el.innerHTML = data.map(d => {
+            const cnt = Number(d.userCount);
+            const pct = Math.round((cnt / maxCount) * 100);
+            return `<div class="db-client-bar">
+                <span style="width:90px;font-size:.8rem;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
+                      title="${esc(d.clientName)}">${esc(d.clientName)}</span>
+                <div style="flex:1;background:#f3f4f6;border-radius:4px;height:8px;">
+                    <div class="db-client-fill" style="width:${pct}%;"></div>
+                </div>
+                <span style="width:30px;text-align:right;font-size:.8rem;font-weight:700;color:#1d4ed8;">${cnt}</span>
+            </div>`;
+        }).join('');
+    });
+}
+
+/* ── 최근 로그인 ── */
+function loadRecentLogins() {
+    return fetch('/main/api/recent-logins').then(r => r.json()).then(data => {
+        const el = document.getElementById('recentLoginList');
+        if (!data.length) { el.innerHTML = '<div class="db-loading" style="padding:.8rem 1rem;">로그인 이력이 없습니다.</div>'; return; }
+        const rows = data.map(h =>
+            `<tr>
+                <td>${esc(h.userId)}</td>
+                <td>${loginBadge(h.actionType)}</td>
+                <td style="color:#9ca3af;font-size:.78rem;">${esc(h.ipAddress)}</td>
+                <td style="color:#9ca3af;font-size:.78rem;white-space:nowrap;">${h.performedAt}</td>
+            </tr>`).join('');
+        el.innerHTML = `<table class="db-log-table"><thead><tr>
+            <th>계정</th><th>유형</th><th>IP</th><th>시각</th>
+        </tr></thead><tbody>${rows}</tbody></table>`;
+    });
+}
+function loginBadge(type) {
+    const m = { LOGIN_SUCCESS:['#dcfce7','#16a34a','성공'], LOGIN_FAIL:['#fee2e2','#dc2626','실패'], LOGOUT:['#f3f4f6','#6b7280','로그아웃'] };
+    const [bg,color,label] = m[type] || ['#f3f4f6','#374151',type];
+    return `<span class="db-badge" style="background:${bg};color:${color};">${label}</span>`;
+}
+
+/* ── 계정 이벤트 ── */
+function loadAccountEvents() {
+    return fetch('/main/api/account-events').then(r => r.json()).then(data => {
+        const el = document.getElementById('accountEventList');
+        if (!data.length) { el.innerHTML = '<div class="db-loading" style="padding:.8rem 1rem;">이벤트 이력이 없습니다.</div>'; return; }
+        const rows = data.map(h =>
+            `<tr>
+                <td>${esc(h.targetUsername)}</td>
+                <td>${accountBadge(h.actionType)}</td>
+                <td style="color:#9ca3af;font-size:.78rem;">${esc(h.performedBy)}</td>
+                <td style="color:#9ca3af;font-size:.78rem;white-space:nowrap;">${h.performedAt}</td>
+            </tr>`).join('');
+        el.innerHTML = `<table class="db-log-table"><thead><tr>
+            <th>대상</th><th>유형</th><th>처리자</th><th>시각</th>
+        </tr></thead><tbody>${rows}</tbody></table>`;
+    });
+}
+function accountBadge(type) {
+    const m = {
+        CREATE:['#dbeafe','#1d4ed8','계정생성'], UPDATE:['#e0f2fe','#0369a1','정보수정'],
+        DELETE:['#fee2e2','#dc2626','계정삭제'], LOCK:['#fef3c7','#d97706','계정잠금'],
+        UNLOCK:['#dcfce7','#16a34a','잠금해제'], RESET_PWD:['#f3e8ff','#7c3aed','비밀번호초기화'],
+    };
+    const [bg,color,label] = m[type] || ['#f3f4f6','#374151',type];
+    return `<span class="db-badge" style="background:${bg};color:${color};">${label}</span>`;
+}
+
+/* ── 보안 알림 ── */
+function loadSecurityAlerts() {
+    return fetch('/main/api/security-alerts').then(r => r.json()).then(d => {
+        const el = document.getElementById('securityAlerts');
+        let html = '';
+
+        /* 장기 미접속 */
+        const dormCnt = d.dormantCount || 0;
+        html += alertSection('fa-clock','#d97706','장기 미접속 (90일+)', dormCnt);
+        if (dormCnt > 0) {
+            html += '<div style="font-size:.8rem;max-height:100px;overflow-y:auto;">';
+            (d.dormantUsers||[]).forEach(u => {
+                html += `<div style="display:flex;justify-content:space-between;padding:.2rem 0;border-bottom:1px solid #f3f4f6;">
+                    <span><b>${esc(u.userId)}</b> ${esc(u.name)}</span>
+                    <span style="color:#9ca3af;">${u.lastLogin}</span></div>`;
+            });
+            html += '</div>';
+        }
+        html += '</div>';
+
+        /* 24시간 로그인 실패 */
+        const failCnt = Number(d.todayFailCount || 0);
+        html += alertSection('fa-triangle-exclamation','#dc2626','24시간 내 로그인 실패', failCnt, failCnt > 10);
+        if ((d.highFailUsers||[]).length > 0) {
+            html += '<div style="font-size:.8rem;">';
+            d.highFailUsers.forEach(u => {
+                html += `<div style="display:flex;justify-content:space-between;padding:.18rem 0;">
+                    <span>${esc(u.userId)}</span>
+                    <span style="color:#dc2626;font-weight:700;">${u.failCount}회</span></div>`;
+            });
+            html += '</div>';
+        }
+        html += '</div>';
+
+        /* 잠금 계정 */
+        const lockCnt = Number(d.lockedCount || 0);
+        html += alertSection('fa-lock','#dc2626','잠금 계정', lockCnt);
+        if (lockCnt > 0) {
+            html += `<div style="font-size:.78rem;color:#9ca3af;padding:.1rem 0;">
+                <a href="/user/list" style="color:#2563eb;">잠금 계정 목록 확인 →</a></div>`;
+        }
+        html += '</div>';
+
+        /* 관리자 권한 변경 */
+        const adminGrants = d.recentAdminGrants || [];
+        html += alertSection('fa-user-shield','#7c3aed','최근 7일 관리자 권한 변경', adminGrants.length);
+        if (adminGrants.length > 0) {
+            html += '<div style="font-size:.8rem;">';
+            adminGrants.forEach(a => {
+                html += `<div style="display:flex;justify-content:space-between;padding:.18rem 0;border-bottom:1px solid #f3f4f6;">
+                    <span><b>${esc(a.userId)}</b> (by ${esc(a.grantedBy||'-')})</span>
+                    <span style="color:#9ca3af;">${a.grantedAt}</span></div>`;
+            });
+            html += '</div>';
+        }
+        html += '</div>';
+
+        el.innerHTML = html;
+    });
+}
+
+function alertSection(icon, color, title, count, forceAlert) {
+    const isAlert = forceAlert !== undefined ? forceAlert : count > 0;
+    const badge = `<span class="${isAlert ? 'db-alert-count' : 'db-alert-ok'}">${count}건</span>`;
+    return `<div class="db-alert-section">
+        <div class="db-alert-title">
+            <i class="fas ${icon}" style="color:${color};"></i> ${title} ${badge}
+        </div>`;
+}
+
+/* ── 관리자 목록 ── */
+function loadAdmins() {
+    return fetch('/main/api/admins').then(r => r.json()).then(data => {
+        const el = document.getElementById('adminList');
+        if (!data.length) { el.innerHTML = '<div class="db-loading" style="padding:.8rem 1rem;">등록된 관리자가 없습니다.</div>'; return; }
+        const rows = data.map(a =>
+            `<tr>
+                <td><b>${esc(a.userId)}</b></td>
+                <td>${esc(a.name)}</td>
+                <td style="color:#9ca3af;font-size:.78rem;">${esc(a.deptCode)}</td>
+                <td style="color:#9ca3af;font-size:.78rem;white-space:nowrap;">${a.grantedAt}</td>
+            </tr>`).join('');
+        el.innerHTML = `<table class="db-log-table"><thead><tr>
+            <th>계정</th><th>이름</th><th>부서</th><th>등록일</th>
+        </tr></thead><tbody>${rows}</tbody></table>`;
+    });
+}
+
+/* ── 유틸 ── */
+function setText(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val ?? 0;
+}
+function esc(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
 </body>
 </html>
