@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{include/layout :: head('SSO 접근 이력')}"></head>
+<body>
+
+<header th:replace="~{include/header :: header}"></header>
+
+<div class="app-body">
+    <aside th:replace="~{include/sidebar :: sidebar}"></aside>
+
+    <main class="app-content">
+
+        <div class="page-header">
+            <div>
+                <div class="breadcrumb-area">
+                    <i class="fas fa-house"></i>
+                    <i class="fas fa-chevron-right"></i>
+                    <span>시스템 연계</span>
+                    <i class="fas fa-chevron-right"></i>
+                    <span>SSO 접근 이력</span>
+                </div>
+                <h2 class="page-title">SSO 접근 이력</h2>
+                <p class="page-subtitle">SSO 엔드포인트에 접근한 클라이언트와 IP를 확인합니다.</p>
+            </div>
+        </div>
+
+        <!-- 검색 필터 -->
+        <div class="card" style="margin-bottom:1rem;">
+            <div class="card-body">
+                <form th:action="@{/sso/access-log}" method="get"
+                      style="display:flex;flex-wrap:wrap;gap:.8rem;align-items:flex-end;">
+                    <div>
+                        <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.3rem;">클라이언트</label>
+                        <select name="clientId" class="modal-input" style="width:190px;">
+                            <option value="">전체</option>
+                            <option th:each="c : ${ssoClients}"
+                                    th:value="${c.clientId}"
+                                    th:text="${c.clientId}"
+                                    th:selected="${c.clientId == clientId}">client_id</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.3rem;">행위</label>
+                        <select name="action" class="modal-input" style="width:140px;">
+                            <option value="">전체</option>
+                            <option value="AUTHORIZE" th:selected="${action == 'AUTHORIZE'}">AUTHORIZE</option>
+                            <option value="TOKEN"     th:selected="${action == 'TOKEN'}">TOKEN</option>
+                            <option value="USERINFO"  th:selected="${action == 'USERINFO'}">USERINFO</option>
+                            <option value="LOGOUT"    th:selected="${action == 'LOGOUT'}">LOGOUT</option>
+                            <option value="DISCOVERY" th:selected="${action == 'DISCOVERY'}">DISCOVERY</option>
+                            <option value="JWKS"      th:selected="${action == 'JWKS'}">JWKS</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.3rem;">결과</label>
+                        <select name="status" class="modal-input" style="width:110px;">
+                            <option value="">전체</option>
+                            <option value="SUCCESS" th:selected="${status == 'SUCCESS'}">SUCCESS</option>
+                            <option value="FAIL"    th:selected="${status == 'FAIL'}">FAIL</option>
+                            <option value="DENIED"  th:selected="${status == 'DENIED'}">DENIED</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.3rem;">계정</label>
+                        <input type="text" name="userId" class="modal-input" th:value="${userId}" placeholder="계정" style="width:130px;"/>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.3rem;">IP</label>
+                        <input type="text" name="ipAddress" class="modal-input" th:value="${ipAddress}" placeholder="IP 주소" style="width:140px;"/>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.3rem;">시작 날짜</label>
+                        <input type="date" name="dateFrom" class="modal-input" th:value="${dateFrom}" style="width:140px;"/>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.3rem;">종료 날짜</label>
+                        <input type="date" name="dateTo" class="modal-input" th:value="${dateTo}" style="width:140px;"/>
+                    </div>
+                    <div style="display:flex;gap:.5rem;">
+                        <button type="submit" class="btn-modal-save" style="padding:.45rem 1rem;">
+                            <i class="fas fa-magnifying-glass"></i> 검색
+                        </button>
+                        <a th:href="@{/sso/access-log}" class="btn-modal-cancel" style="padding:.45rem 1rem;text-decoration:none;">초기화</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 접근 이력 목록 -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title"><i class="fas fa-door-open"></i> SSO 접근 이력</span>
+                <span style="font-size:.78rem;color:var(--gray-400);">
+                    총 <strong th:text="${logPage.totalElements}">0</strong>건
+                </span>
+            </div>
+            <div class="card-body" style="padding:0;">
+                <div class="menu-table-wrap">
+                    <table class="menu-table">
+                        <thead>
+                        <tr>
+                            <th style="width:100px;">행위</th>
+                            <th style="width:80px;">결과</th>
+                            <th style="width:160px;">클라이언트</th>
+                            <th style="width:120px;">계정</th>
+                            <th style="width:140px;">IP</th>
+                            <th>상세</th>
+                            <th style="width:155px;">접근일시</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="l : ${logPage.content}">
+                            <td class="cell-center">
+                                <span th:switch="${l.action}">
+                                    <span th:case="'AUTHORIZE'" class="role-badge" style="background:var(--blue-100,#dbeafe);color:var(--blue-700,#1d4ed8);">AUTHORIZE</span>
+                                    <span th:case="'TOKEN'"     class="role-badge" style="background:#fef9c3;color:#854d0e;">TOKEN</span>
+                                    <span th:case="'USERINFO'"  class="role-badge" style="background:#f3e8ff;color:#7e22ce;">USERINFO</span>
+                                    <span th:case="'LOGOUT'"    class="role-badge" style="background:#f3f4f6;color:var(--gray-500);">LOGOUT</span>
+                                    <span th:case="'DISCOVERY'" class="role-badge" style="background:#ecfdf5;color:#065f46;">DISCOVERY</span>
+                                    <span th:case="'JWKS'"      class="role-badge" style="background:#fce7f3;color:#9d174d;">JWKS</span>
+                                    <span th:case="*"           class="role-badge" th:text="${l.action}">ACTION</span>
+                                </span>
+                            </td>
+                            <td class="cell-center">
+                                <span th:switch="${l.status}">
+                                    <span th:case="'SUCCESS'" class="role-badge" style="background:#dcfce7;color:#166534;">SUCCESS</span>
+                                    <span th:case="'FAIL'"    class="role-badge" style="background:#fee2e2;color:#b91c1c;">FAIL</span>
+                                    <span th:case="'DENIED'"  class="role-badge" style="background:#fef3c7;color:#92400e;">DENIED</span>
+                                    <span th:case="*"         class="role-badge" th:text="${l.status}">STATUS</span>
+                                </span>
+                            </td>
+                            <td>
+                                <code th:text="${l.clientId} ?: '—'" style="font-size:.8rem;">client_id</code>
+                            </td>
+                            <td th:text="${l.userId} ?: '—'">userId</td>
+                            <td th:text="${l.ipAddress} ?: '—'" style="font-size:.82rem;font-family:monospace;color:var(--gray-500);"></td>
+                            <td>
+                                <span th:text="${l.detail} ?: '—'"
+                                      style="font-size:.82rem;color:var(--gray-500);">detail</span>
+                            </td>
+                            <td th:text="${#temporals.format(l.accessedAt, 'yyyy-MM-dd HH:mm:ss')}" style="font-size:.82rem;color:var(--gray-500);"></td>
+                        </tr>
+                        <tr th:if="${logPage.content.isEmpty()}">
+                            <td colspan="7" class="cell-empty">접근 이력이 없습니다.</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 페이지네이션 -->
+            <div th:if="${logPage.totalPages > 1}"
+                 style="display:flex;justify-content:center;gap:.4rem;padding:1rem;">
+                <a th:if="${!logPage.first}"
+                   th:href="@{/sso/access-log(page=${logPage.number - 1},clientId=${clientId},userId=${userId},action=${action},status=${status},ipAddress=${ipAddress},dateFrom=${dateFrom},dateTo=${dateTo})}"
+                   style="padding:.3rem .7rem;border:1px solid var(--gray-200);border-radius:6px;text-decoration:none;color:var(--gray-600);">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+                <th:block th:each="i : ${#numbers.sequence(0, logPage.totalPages - 1)}">
+                    <a th:href="@{/sso/access-log(page=${i},clientId=${clientId},userId=${userId},action=${action},status=${status},ipAddress=${ipAddress},dateFrom=${dateFrom},dateTo=${dateTo})}"
+                       th:text="${i + 1}"
+                       th:style="${i == logPage.number} ?
+                           'padding:.3rem .7rem;border:1px solid var(--blue-500);border-radius:6px;text-decoration:none;background:var(--blue-500);color:#fff;' :
+                           'padding:.3rem .7rem;border:1px solid var(--gray-200);border-radius:6px;text-decoration:none;color:var(--gray-600);'">1</a>
+                </th:block>
+                <a th:if="${!logPage.last}"
+                   th:href="@{/sso/access-log(page=${logPage.number + 1},clientId=${clientId},userId=${userId},action=${action},status=${status},ipAddress=${ipAddress},dateFrom=${dateFrom},dateTo=${dateTo})}"
+                   style="padding:.3rem .7rem;border:1px solid var(--gray-200);border-radius:6px;text-decoration:none;color:var(--gray-600);">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+            </div>
+        </div>
+
+    </main>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/common.js}"></script>
+</body>
+</html>

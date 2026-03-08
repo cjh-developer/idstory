@@ -149,7 +149,7 @@ INSERT INTO ids_iam_menu (menu_id, parent_id, menu_name, icon, url, sort_order, 
 INSERT INTO ids_iam_menu (parent_id, menu_name, icon, url, sort_order, enabled) VALUES
                                                                                     (2, '사용자 목록',   NULL, '/user/list',    21, 1),
                                                                                     (2, '관리자 관리',   NULL, '/admin/list',   22, 1),
-                                                                                    (2, '사용자 그룹',   NULL, '#',             23, 1),
+                                                                                    (2, '사용자 그룹',   NULL, '#',             23, 0),
                                                                                     (2, '클라이언트 관리', NULL, '/auth/client', 24, 1);
 
 -- ── 조직 관리 소분류 ─────────────────────────────────────────────────────
@@ -171,9 +171,9 @@ INSERT INTO ids_iam_menu (parent_id, menu_name, icon, url, sort_order, enabled) 
 
 -- ── 인증 관리 소분류 ─────────────────────────────────────────────────────
 INSERT INTO ids_iam_menu (parent_id, menu_name, icon, url, sort_order, enabled) VALUES
-                                                                                    (5, '인증 정책', NULL, '#', 51, 1),
-                                                                                    (5, 'MFA 설정',  NULL, '#', 52, 1),
-                                                                                    (5, '세션 관리', NULL, '#', 53, 1);
+                                                                                    (5, '인증 정책', NULL, '#', 51, 0),
+                                                                                    (5, 'MFA 설정',  NULL, '#', 52, 0),
+                                                                                    (5, '세션 관리', NULL, '#', 53, 0);
 
 -- ── 정책 관리 소분류 ─────────────────────────────────────────────────────
 INSERT INTO ids_iam_menu (parent_id, menu_name, icon, url, sort_order, enabled) VALUES
@@ -186,29 +186,32 @@ INSERT INTO ids_iam_menu (parent_id, menu_name, icon, url, sort_order, enabled) 
     (6, '시스템 보안',   NULL, '/policy/manage/system',   67, 1);
 
 -- ── 시스템 연계 소분류 ───────────────────────────────────────────────────
-INSERT INTO ids_iam_menu (parent_id, menu_name, icon, url, sort_order, enabled) VALUES
-                                                                                    (7, '연계 시스템 목록', NULL, '#', 71, 1),
-                                                                                    (7, 'API 관리',         NULL, '#', 72, 1),
-                                                                                    (7, 'SSO 설정',         NULL, '#', 73, 1);
+INSERT INTO ids_iam_menu (parent_id, menu_name, icon, url, sort_order, enabled, locked) VALUES
+    (7, '연계 시스템 목록',    'fas fa-network-wired',  '#',                71, 0, 0),
+    (7, 'API 관리',           'fas fa-code',           '#',                72, 0, 0),
+    (7, 'SSO 클라이언트 설정', 'fas fa-id-card-clip',   '/sso/clients',     73, 0, 0),
+    (7, 'SSO 토큰 현황',      'fas fa-ticket',         '/sso/tokens',      74, 1, 0),
+    (7, '인증코드 발행 이력',  'fas fa-code-branch',    '/sso/auth-codes',  75, 1, 0),
+    (7, 'SSO 접근 이력',      'fas fa-door-open',      '/sso/access-log',  76, 1, 0);
 
 -- ── 감사 / 이력 관리 소분류 ──────────────────────────────────────────────
 INSERT INTO ids_iam_menu (parent_id, menu_name, icon, url, sort_order, enabled) VALUES
                                                                                     (8, '로그인 이력',      NULL, '/history/login',         81, 1),
-                                                                                    (8, '접근 이력',        NULL, '#',                      82, 1),
-                                                                                    (8, '변경 이력',        NULL, '#',                      83, 1),
+                                                                                    (8, '접근 이력',        NULL, '#',                      82, 0),
+                                                                                    (8, '변경 이력',        NULL, '#',                      83, 0),
                                                                                     (8, '사용자 계정 이력', NULL, '/history/user-account',  84, 1);
 
 -- ── 통계 / 리포트 소분류 ─────────────────────────────────────────────────
 INSERT INTO ids_iam_menu (parent_id, menu_name, icon, url, sort_order, enabled) VALUES
-                                                                                    (9, '사용자 통계', NULL, '#', 91, 1),
-                                                                                    (9, '접근 통계',   NULL, '#', 92, 1),
-                                                                                    (9, '보고서 생성', NULL, '#', 93, 1);
+                                                                                    (9, '사용자 통계', NULL, '#', 91, 0),
+                                                                                    (9, '접근 통계',   NULL, '#', 92, 0),
+                                                                                    (9, '보고서 생성', NULL, '#', 93, 0);
 
 -- ── 시스템 설정 소분류 ───────────────────────────────────────────────────
 INSERT INTO ids_iam_menu (parent_id, menu_name, icon, url, sort_order, enabled) VALUES
-                                                                                    (10, '기본 설정', NULL, '#',            101, 1),
-                                                                                    (10, '알림 설정', NULL, '#',            102, 1),
-                                                                                    (10, '백업 관리', NULL, '#',            103, 1),
+                                                                                    (10, '기본 설정', NULL, '#',            101, 0),
+                                                                                    (10, '알림 설정', NULL, '#',            102, 0),
+                                                                                    (10, '백업 관리', NULL, '#',            103, 0),
                                                                                     (10, '메뉴 관리', NULL, '/system/menu', 104, 1);
 
 -- ── ids_iam_menu_role (메뉴 권한 설정) ───────────────────────────────────
@@ -322,8 +325,9 @@ INSERT INTO ids_iam_policy (policy_group, policy_key, policy_value, value_type, 
     ('SYSTEM_POLICY', 'DOWNLOAD_ENABLED',     'true',   'BOOLEAN', '파일 다운로드 허용'),
     ('SYSTEM_POLICY', 'CORS_POLICY',          'SAME_ORIGIN', 'ENUM', 'CORS 정책(SAME_ORIGIN|ALLOW_ALL|CUSTOM)'),
     ('SYSTEM_POLICY', 'CSRF_ENABLED',              'true',  'BOOLEAN', 'CSRF 보호 활성화'),
-    ('SYSTEM_POLICY', 'IP_ACCESS_CONTROL_ENABLED',  'false', 'BOOLEAN', 'IP 접근 제어 활성화 (등록 IP만 허용)'),
-    ('SYSTEM_POLICY', 'MAC_ACCESS_CONTROL_ENABLED', 'false', 'BOOLEAN', 'MAC 접근 제어 활성화 (등록 MAC만 허용)');
+    ('SYSTEM_POLICY', 'IP_ACCESS_CONTROL_ENABLED',      'false', 'BOOLEAN', 'IP 접근 제어 활성화 (등록 IP만 허용)'),
+    ('SYSTEM_POLICY', 'MAC_ACCESS_CONTROL_ENABLED',     'false', 'BOOLEAN', 'MAC 접근 제어 활성화 (등록 MAC만 허용)'),
+    ('SYSTEM_POLICY', 'SSO_ACCESS_TOKEN_EXTEND_SEC',    '1800',  'INTEGER', 'SSO 로그인 체크(/sso/check) 시 Access Token 연장 시간(초)');
 
 -- ============================================================
 --  ids_iam_admin 초기 데이터 (admin 계정 매핑)

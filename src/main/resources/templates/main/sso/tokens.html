@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{include/layout :: head('SSO 토큰 현황')}"></head>
+<body>
+
+<header th:replace="~{include/header :: header}"></header>
+
+<div class="app-body">
+    <aside th:replace="~{include/sidebar :: sidebar}"></aside>
+
+    <main class="app-content">
+
+        <div class="page-header">
+            <div>
+                <div class="breadcrumb-area">
+                    <i class="fas fa-house"></i>
+                    <i class="fas fa-chevron-right"></i>
+                    <span>시스템 연계</span>
+                    <i class="fas fa-chevron-right"></i>
+                    <span>SSO 토큰 현황</span>
+                </div>
+                <h2 class="page-title">SSO 토큰 현황</h2>
+                <p class="page-subtitle">발행된 SSO 토큰을 조회하고 취소합니다.</p>
+            </div>
+        </div>
+
+        <div id="toastWrap" class="toast-wrap"></div>
+
+        <!-- 검색 필터 -->
+        <div class="card" style="margin-bottom:1rem;">
+            <div class="card-body">
+                <form th:action="@{/sso/tokens}" method="get"
+                      style="display:flex;flex-wrap:wrap;gap:.8rem;align-items:flex-end;">
+                    <div>
+                        <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.3rem;">클라이언트</label>
+                        <select name="clientId" class="modal-input" style="width:200px;">
+                            <option value="">전체</option>
+                            <option th:each="c : ${ssoClients}"
+                                    th:value="${c.clientId}"
+                                    th:text="${c.clientId}"
+                                    th:selected="${c.clientId == clientId}">client_id</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.3rem;">토큰 유형</label>
+                        <select name="tokenType" class="modal-input" style="width:130px;">
+                            <option value="">전체</option>
+                            <option value="ACCESS"  th:selected="${tokenType == 'ACCESS'}">ACCESS</option>
+                            <option value="REFRESH" th:selected="${tokenType == 'REFRESH'}">REFRESH</option>
+                            <option value="ID"      th:selected="${tokenType == 'ID'}">ID</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.3rem;">계정</label>
+                        <input type="text" name="userId" class="modal-input" th:value="${userId}" placeholder="계정 검색" style="width:150px;"/>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.3rem;">시작 날짜</label>
+                        <input type="date" name="dateFrom" class="modal-input" th:value="${dateFrom}" style="width:145px;"/>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:.3rem;">종료 날짜</label>
+                        <input type="date" name="dateTo" class="modal-input" th:value="${dateTo}" style="width:145px;"/>
+                    </div>
+                    <div style="display:flex;gap:.5rem;">
+                        <button type="submit" class="btn-modal-save" style="padding:.45rem 1rem;">
+                            <i class="fas fa-magnifying-glass"></i> 검색
+                        </button>
+                        <a th:href="@{/sso/tokens}" class="btn-modal-cancel" style="padding:.45rem 1rem;text-decoration:none;">초기화</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 토큰 목록 -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title"><i class="fas fa-ticket"></i> 토큰 목록</span>
+                <span style="font-size:.78rem;color:var(--gray-400);">
+                    총 <strong th:text="${tokenPage.totalElements}">0</strong>건
+                </span>
+            </div>
+            <div class="card-body" style="padding:0;">
+                <div class="menu-table-wrap">
+                    <table class="menu-table">
+                        <thead>
+                        <tr>
+                            <th style="width:100px;">유형</th>
+                            <th style="width:160px;">클라이언트</th>
+                            <th style="width:120px;">계정</th>
+                            <th>JWT ID (jti)</th>
+                            <th style="width:155px;">발행일시</th>
+                            <th style="width:155px;">만료일시</th>
+                            <th style="width:80px;">상태</th>
+                            <th style="width:70px;">관리</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="t : ${tokenPage.content}">
+                            <td class="cell-center">
+                                <span th:switch="${t.tokenType}">
+                                    <span th:case="'ACCESS'"  class="role-badge" style="background:var(--blue-100,#dbeafe);color:var(--blue-700,#1d4ed8);">ACCESS</span>
+                                    <span th:case="'REFRESH'" class="role-badge" style="background:#fef9c3;color:#854d0e;">REFRESH</span>
+                                    <span th:case="'ID'"      class="role-badge" style="background:#f3e8ff;color:#7e22ce;">ID</span>
+                                    <span th:case="*"         class="role-badge" th:text="${t.tokenType}">TYPE</span>
+                                </span>
+                            </td>
+                            <td><code th:text="${t.clientId}" style="font-size:.8rem;">client_id</code></td>
+                            <td th:text="${t.userId}">userId</td>
+                            <td>
+                                <span th:text="${#strings.substring(t.jti, 0, 18) + '...'}"
+                                      th:title="${t.jti}"
+                                      style="font-size:.8rem;font-family:monospace;color:var(--gray-500);">jti</span>
+                            </td>
+                            <td th:text="${#temporals.format(t.issuedAt, 'yyyy-MM-dd HH:mm:ss')}" style="font-size:.82rem;color:var(--gray-500);"></td>
+                            <td th:text="${#temporals.format(t.expiresAt, 'yyyy-MM-dd HH:mm:ss')}" style="font-size:.82rem;color:var(--gray-500);"></td>
+                            <td class="cell-center">
+                                <span th:if="${t.revokedAt != null}" class="role-badge" style="background:#fee2e2;color:#b91c1c;">취소됨</span>
+                                <span th:if="${t.revokedAt == null and t.expiresAt.isBefore(#temporals.createNow())}"
+                                      class="role-badge" style="background:#f3f4f6;color:var(--gray-500);">만료</span>
+                                <span th:if="${t.revokedAt == null and t.expiresAt.isAfter(#temporals.createNow())}"
+                                      class="role-badge" style="background:#dcfce7;color:#166534;">유효</span>
+                            </td>
+                            <td class="cell-center">
+                                <button th:if="${t.revokedAt == null}"
+                                        class="btn-icon" title="취소" style="color:#ef4444;"
+                                        th:onclick="'revokeToken(\'' + ${t.tokenOid} + '\')'">
+                                    <i class="fas fa-ban"></i>
+                                </button>
+                                <span th:unless="${t.revokedAt == null}" style="color:var(--gray-300);">—</span>
+                            </td>
+                        </tr>
+                        <tr th:if="${tokenPage.content.isEmpty()}">
+                            <td colspan="8" class="cell-empty">토큰 데이터가 없습니다.</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 페이지네이션 -->
+            <div th:if="${tokenPage.totalPages > 1}"
+                 style="display:flex;justify-content:center;gap:.4rem;padding:1rem;">
+                <a th:if="${!tokenPage.first}"
+                   th:href="@{/sso/tokens(page=${tokenPage.number - 1},clientId=${clientId},userId=${userId},tokenType=${tokenType},dateFrom=${dateFrom},dateTo=${dateTo})}"
+                   style="padding:.3rem .7rem;border:1px solid var(--gray-200);border-radius:6px;text-decoration:none;color:var(--gray-600);">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+                <th:block th:each="i : ${#numbers.sequence(0, tokenPage.totalPages - 1)}">
+                    <a th:href="@{/sso/tokens(page=${i},clientId=${clientId},userId=${userId},tokenType=${tokenType},dateFrom=${dateFrom},dateTo=${dateTo})}"
+                       th:text="${i + 1}"
+                       th:style="${i == tokenPage.number} ?
+                           'padding:.3rem .7rem;border:1px solid var(--blue-500);border-radius:6px;text-decoration:none;background:var(--blue-500);color:#fff;' :
+                           'padding:.3rem .7rem;border:1px solid var(--gray-200);border-radius:6px;text-decoration:none;color:var(--gray-600);'">1</a>
+                </th:block>
+                <a th:if="${!tokenPage.last}"
+                   th:href="@{/sso/tokens(page=${tokenPage.number + 1},clientId=${clientId},userId=${userId},tokenType=${tokenType},dateFrom=${dateFrom},dateTo=${dateTo})}"
+                   style="padding:.3rem .7rem;border:1px solid var(--gray-200);border-radius:6px;text-decoration:none;color:var(--gray-600);">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+            </div>
+        </div>
+
+    </main>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/common.js}"></script>
+<script th:inline="javascript">
+    const csrfToken  = document.querySelector('meta[name="_csrf"]')?.content;
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
+
+    async function revokeToken(tokenOid) {
+        if (!confirm('이 토큰을 취소하시겠습니까?')) return;
+        const headers = {'Content-Type': 'application/json'};
+        if (csrfHeader) headers[csrfHeader] = csrfToken;
+        const res  = await fetch(`/sso/tokens/${tokenOid}/revoke`, {method:'POST', headers, body:'{}'});
+        const data = await res.json();
+        showToast(data.message, data.success ? 'success' : 'error');
+        if (data.success) setTimeout(()=>location.reload(), 1200);
+    }
+
+    function showToast(msg, type) {
+        const wrap = document.getElementById('toastWrap');
+        const t = document.createElement('div');
+        t.className = 'toast-inner';
+        t.style.background = type === 'error' ? '#fee2e2' : '#f0fdf4';
+        t.style.color      = type === 'error' ? '#b91c1c' : '#166534';
+        t.style.border     = `1px solid ${type === 'error' ? '#fca5a5' : '#86efac'}`;
+        t.innerHTML = `<i class="fas fa-${type==='error'?'circle-exclamation':'circle-check'}"></i> ${msg}`;
+        wrap.appendChild(t);
+        setTimeout(()=>t.remove(), 3500);
+    }
+</script>
+
+</body>
+</html>

@@ -103,18 +103,28 @@
                 <h5 class="modal-title"><i class="fas fa-plus-circle" style="margin-right:.5rem;"></i>클라이언트 등록</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
+            <div class="modal-body" style="padding:1.5rem;">
             <form id="formRegister" novalidate>
-                <div class="modal-body" style="padding:1.5rem;">
                     <div class="row g-3">
                         <div class="col-md-4">
                             <label class="form-label modal-label">클라이언트 코드 <span style="color:#ef4444;">*</span></label>
                             <input type="text" id="regClientCode" name="clientCode" class="modal-input w-100"
-                                   placeholder="예: SYS_PORTAL" maxlength="50" style="text-transform:uppercase;">
+                                   placeholder="예: SYS_PORTAL" maxlength="50" style="text-transform:uppercase;"
+                                   oninput="onClientCodeInput()">
                         </div>
-                        <div class="col-md-8">
+                        <div class="col-md-5">
                             <label class="form-label modal-label">클라이언트명 <span style="color:#ef4444;">*</span></label>
                             <input type="text" id="regClientName" name="clientName" class="modal-input w-100"
                                    placeholder="클라이언트명 입력" maxlength="100">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label modal-label">APP 유형 <span style="color:#ef4444;">*</span></label>
+                            <select id="regAppType" name="appType" class="modal-input w-100" onchange="onAppTypeChange()">
+                                <option value="IAM">IAM</option>
+                                <option value="SSO">SSO</option>
+                                <option value="EAM">EAM</option>
+                                <option value="IEAM">IEAM</option>
+                            </select>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label modal-label">상위 클라이언트</label>
@@ -138,15 +148,90 @@
                             <textarea id="regDescription" name="description" class="modal-input w-100"
                                       rows="2" maxlength="500" placeholder="클라이언트 설명"></textarea>
                         </div>
+
+                        <!-- SSO 설정 영역 (appType=SSO 시만 표시) -->
+                        <div id="ssoSection" class="col-12" style="display:none;">
+                            <hr style="margin:.2rem 0 .8rem;">
+                            <div style="font-size:.85rem;font-weight:700;color:#2563eb;margin-bottom:.8rem;">
+                                <i class="fas fa-shield-halved" style="margin-right:.4rem;"></i>SSO 설정
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label modal-label">Client ID (OIDC) <span style="color:#ef4444;">*</span></label>
+                                    <input type="text" id="regSsoClientId" name="ssoClientId" class="modal-input w-100"
+                                           placeholder="예: sys_portal">
+                                    <div style="font-size:.75rem;color:#9ca3af;margin-top:.2rem;">OIDC client_id (소문자 권장)</div>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label modal-label">SSO URI 등록</label>
+                                    <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem;">
+                                        <select id="regUriType" class="modal-input" style="width:auto;min-width:150px;">
+                                            <option value="AUTH_URI">AUTH_URI</option>
+                                            <option value="AUTH_RESULT">AUTH_RESULT</option>
+                                            <option value="REDIRECT_URI">REDIRECT_URI</option>
+                                        </select>
+                                        <input type="text" id="regUriValue" class="modal-input" style="flex:1;"
+                                               placeholder="https://app.example.com/..."
+                                               onkeydown="if(event.key==='Enter'){event.preventDefault();addSsoUri('reg');}">
+                                        <button type="button" class="btn btn-outline-primary btn-sm" style="white-space:nowrap;"
+                                                onclick="addSsoUri('reg')">
+                                            <i class="fas fa-plus"></i> 추가
+                                        </button>
+                                    </div>
+                                    <div id="regSsoUriList" style="border:1px solid #e5e7eb;border-radius:6px;min-height:56px;padding:.4rem;background:#f9fafb;">
+                                        <div class="sso-uri-empty" style="color:#9ca3af;font-size:.8rem;text-align:center;padding:.6rem 0;">등록된 URI가 없습니다.</div>
+                                    </div>
+                                    <div style="font-size:.73rem;color:#9ca3af;margin-top:.3rem;">
+                                        AUTH_URI: 인증 페이지 &nbsp;|&nbsp; AUTH_RESULT: 콜백 주소 &nbsp;|&nbsp; REDIRECT_URI: OIDC redirect_uri
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label modal-label">NO_USE_SSO URI</label>
+                                    <textarea id="regNoUseSso" name="noUseSso" class="modal-input w-100"
+                                              rows="3" placeholder="/public&#10;/health&#10;/api/open"></textarea>
+                                    <div style="font-size:.75rem;color:#9ca3af;margin-top:.2rem;">SSO 인증을 사용하지 않는 URI 목록 (줄바꿈 구분)</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div class="modal-footer">
+            </form>
+            </div>
+            <div class="modal-footer">
                     <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">닫기</button>
                     <button type="button" class="btn btn-primary btn-sm" onclick="submitRegister()">
                         <i class="fas fa-save"></i> 저장
                     </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════
+     모달: Secret 표시 (1회)
+     ════════════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalSecret" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#fef3c7;border-bottom:1px solid #fcd34d;">
+                <h5 class="modal-title" style="color:#92400e;">
+                    <i class="fas fa-triangle-exclamation" style="margin-right:.5rem;"></i>Client Secret (1회만 표시)
+                </h5>
+            </div>
+            <div class="modal-body" style="padding:1.5rem;">
+                <p style="font-size:.86rem;color:#6b7280;margin-bottom:1rem;">
+                    아래 Secret은 <strong>지금 이 순간만</strong> 표시됩니다. 반드시 안전한 곳에 복사·보관하세요.
+                </p>
+                <div style="display:flex;align-items:center;gap:.5rem;">
+                    <input type="text" id="secretValue" readonly class="modal-input"
+                           style="flex:1;font-family:monospace;font-size:.9rem;letter-spacing:.05rem;">
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="copySecret()">
+                        <i class="fas fa-copy"></i> 복사
+                    </button>
                 </div>
-            </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-warning btn-sm" data-bs-dismiss="modal">확인했습니다</button>
+            </div>
         </div>
     </div>
 </div>
@@ -160,6 +245,14 @@
     let allClients   = [];
     let selectedOid  = null;
     let searchKeyword = '';
+
+    // APP 유형별 배지 색상
+    const APP_TYPE_BADGE = {
+        SSO:  { bg: '#dbeafe', color: '#1d4ed8', label: 'SSO' },
+        IAM:  { bg: '#f3f4f6', color: '#6b7280', label: 'IAM' },
+        EAM:  { bg: '#d1fae5', color: '#065f46', label: 'EAM' },
+        IEAM: { bg: '#ede9fe', color: '#6d28d9', label: 'IEAM' },
+    };
 
     document.addEventListener('DOMContentLoaded', loadTree);
 
@@ -271,6 +364,11 @@
         treeEl.innerHTML = html || '<div style="color:#9ca3af;font-size:.83rem;padding:.5rem;">검색 결과가 없습니다.</div>';
     }
 
+    function appTypeBadgeHtml(appType) {
+        const cfg = APP_TYPE_BADGE[appType] || APP_TYPE_BADGE.IAM;
+        return `<span style="font-size:.68rem;background:${cfg.bg};color:${cfg.color};padding:1px 5px;border-radius:4px;margin-left:.3rem;font-weight:700;">${cfg.label}</span>`;
+    }
+
     function buildTreeHtml(nodes, depth, filterInfo) {
         let html = '';
         const sorted = [...nodes].sort((a, b) => a.sortOrder - b.sortOrder);
@@ -302,6 +400,7 @@
                     <i class="fas ${icon}" style="color:${iconColor};font-size:.8rem;width:14px;"></i>
                     <span>${nameHtml}</span>
                     <span style="font-size:.75rem;color:#9ca3af;">(${codeHtml})</span>
+                    ${appTypeBadgeHtml(node.appType || 'IAM')}
                     ${badge}
                 </div>`;
             if (hasChildren) html += buildTreeHtml(node.children, depth + 1, filterInfo);
@@ -331,11 +430,19 @@
         return dt.replace('T', ' ').substring(0, 16);
     }
 
+    function appTypeLabel(appType) {
+        const cfg = APP_TYPE_BADGE[appType] || APP_TYPE_BADGE.IAM;
+        return `<span style="font-size:.8rem;background:${cfg.bg};color:${cfg.color};padding:2px 8px;border-radius:4px;font-weight:700;">${cfg.label}</span>`;
+    }
+
     function renderDetail(c) {
+        const isSso = (c.appType === 'SSO');
+
         const rows = [
             ['클라이언트 OID',  c.clientOid],
             ['클라이언트 코드', c.clientCode],
             ['클라이언트명',    c.clientName],
+            ['APP 유형',        appTypeLabel(c.appType || 'IAM')],
             ['상위 클라이언트', getParentName(c.parentOid)],
             ['설명',            c.description || '—'],
             ['정렬 순서',       c.sortOrder],
@@ -353,6 +460,19 @@
              </tr>`
         ).join('');
 
+        // 탭 헤더 (SSO만 SSO 설정 탭 추가)
+        const tabsHtml = isSso ? `
+            <ul class="nav nav-tabs" style="margin-bottom:1rem;">
+                <li class="nav-item">
+                    <a class="nav-link active" id="tab-basic-link" href="#" onclick="switchTab('basic');return false;">기본 정보</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="tab-sso-link" href="#" onclick="switchTab('sso');return false;">
+                        <i class="fas fa-shield-halved" style="margin-right:.3rem;"></i>SSO 설정
+                    </a>
+                </li>
+            </ul>` : '';
+
         document.getElementById('clientDetail').innerHTML = `
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
                 <h5 style="margin:0;font-size:1rem;font-weight:700;">${c.clientName}</h5>
@@ -365,51 +485,290 @@
                     </button>
                 </div>
             </div>
-            <table class="table table-sm table-borderless" style="margin:0;">${tableHtml}</table>
-            <div id="editPanel" style="display:none;margin-top:1.5rem;border-top:1px solid #e5e7eb;padding-top:1.2rem;">
-                <h6 style="font-size:.9rem;font-weight:700;margin-bottom:1rem;">정보 수정</h6>
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <label class="form-label modal-label">클라이언트 코드</label>
-                        <input type="text" id="editClientCode" class="modal-input w-100" readonly
-                               style="background:#f3f4f6;color:#6b7280;" value="${c.clientCode}">
-                    </div>
-                    <div class="col-md-8">
-                        <label class="form-label modal-label">클라이언트명 <span style="color:#ef4444;">*</span></label>
-                        <input type="text" id="editClientName" class="modal-input w-100" value="${c.clientName}" maxlength="100">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label modal-label">상위 클라이언트</label>
-                        <select id="editParentOid" class="modal-input w-100"></select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label modal-label">정렬 순서</label>
-                        <input type="number" id="editSortOrder" class="modal-input w-100" value="${c.sortOrder}" min="0">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label modal-label">사용여부</label>
-                        <select id="editUseYn" class="modal-input w-100">
-                            <option value="Y" ${c.useYn === 'Y' ? 'selected' : ''}>Y (사용)</option>
-                            <option value="N" ${c.useYn === 'N' ? 'selected' : ''}>N (미사용)</option>
-                        </select>
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label modal-label">설명</label>
-                        <textarea id="editDescription" class="modal-input w-100" rows="2" maxlength="500">${c.description || ''}</textarea>
-                    </div>
-                    <div class="col-12 text-end">
-                        <button type="button" class="btn btn-secondary btn-sm me-1" onclick="closeEditPanel()">취소</button>
-                        <button type="button" class="btn btn-primary btn-sm" onclick="submitEdit('${c.clientOid}')">
-                            <i class="fas fa-save"></i> 저장
-                        </button>
+            ${tabsHtml}
+            <!-- 기본 정보 탭 -->
+            <div id="tab-basic">
+                <table class="table table-sm table-borderless" style="margin:0;">${tableHtml}</table>
+                <div id="editPanel" style="display:none;margin-top:1.5rem;border-top:1px solid #e5e7eb;padding-top:1.2rem;">
+                    <h6 style="font-size:.9rem;font-weight:700;margin-bottom:1rem;">정보 수정</h6>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label modal-label">클라이언트 코드</label>
+                            <input type="text" id="editClientCode" class="modal-input w-100" readonly
+                                   style="background:#f3f4f6;color:#6b7280;" value="${c.clientCode}">
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label modal-label">클라이언트명 <span style="color:#ef4444;">*</span></label>
+                            <input type="text" id="editClientName" class="modal-input w-100" value="${c.clientName}" maxlength="100">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label modal-label">APP 유형</label>
+                            <select id="editAppType" class="modal-input w-100">
+                                <option value="IAM" ${c.appType === 'IAM' ? 'selected' : ''}>IAM</option>
+                                <option value="SSO" ${c.appType === 'SSO' ? 'selected' : ''}>SSO</option>
+                                <option value="EAM" ${c.appType === 'EAM' ? 'selected' : ''}>EAM</option>
+                                <option value="IEAM" ${c.appType === 'IEAM' ? 'selected' : ''}>IEAM</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label modal-label">상위 클라이언트</label>
+                            <select id="editParentOid" class="modal-input w-100"></select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label modal-label">정렬 순서</label>
+                            <input type="number" id="editSortOrder" class="modal-input w-100" value="${c.sortOrder}" min="0">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label modal-label">사용여부</label>
+                            <select id="editUseYn" class="modal-input w-100">
+                                <option value="Y" ${c.useYn === 'Y' ? 'selected' : ''}>Y (사용)</option>
+                                <option value="N" ${c.useYn === 'N' ? 'selected' : ''}>N (미사용)</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label modal-label">설명</label>
+                            <textarea id="editDescription" class="modal-input w-100" rows="2" maxlength="500">${c.description || ''}</textarea>
+                        </div>
+                        <div class="col-12 text-end">
+                            <button type="button" class="btn btn-secondary btn-sm me-1" onclick="closeEditPanel()">취소</button>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="submitEdit('${c.clientOid}')">
+                                <i class="fas fa-save"></i> 저장
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>`;
+            </div>
+            <!-- SSO 설정 탭 -->
+            ${isSso ? `<div id="tab-sso" style="display:none;"><div id="ssoSettingsContent"><div style="color:#9ca3af;font-size:.83rem;padding:1rem 0;">SSO 설정 로드 중...</div></div></div>` : ''}
+        `;
 
-        // 수정 패널용 상위 select 구성 (자기 자신 제외)
         updateParentSelect(document.getElementById('editParentOid'), allClients, c.clientOid);
         const editParent = document.getElementById('editParentOid');
         if (editParent) editParent.value = c.parentOid || '';
+
+        // SSO 탭이면 미리 데이터 로드
+        if (isSso) loadSsoSettings(c.clientOid);
+    }
+
+    function switchTab(tab) {
+        document.getElementById('tab-basic').style.display = tab === 'basic' ? 'block' : 'none';
+        document.getElementById('tab-sso').style.display   = tab === 'sso'   ? 'block' : 'none';
+        document.getElementById('tab-basic-link').classList.toggle('active', tab === 'basic');
+        document.getElementById('tab-sso-link').classList.toggle('active',   tab === 'sso');
+    }
+
+    // ── SSO URI 목록 헬퍼 ────────────────────────────────────────
+    const SSO_URI_BADGE = {
+        'AUTH_URI':    { bg:'#eff6ff', color:'#1d4ed8', border:'#bfdbfe' },
+        'AUTH_RESULT': { bg:'#f0fdf4', color:'#16a34a', border:'#bbf7d0' },
+        'REDIRECT_URI':{ bg:'#fff7ed', color:'#c2410c', border:'#fed7aa' }
+    };
+
+    function escHtml(s) {
+        return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function ssoUriItemHtml(type, uri) {
+        const b = SSO_URI_BADGE[type] || { bg:'#f3f4f6', color:'#374151', border:'#e5e7eb' };
+        return `<div class="sso-uri-item" data-type="${type}" data-uri="${escHtml(uri)}"
+                     style="display:flex;align-items:center;gap:.45rem;padding:.3rem .45rem;margin-bottom:.3rem;
+                            border-radius:4px;background:#fff;border:1px solid #e5e7eb;">
+            <span style="font-size:.72rem;font-weight:700;padding:.12rem .42rem;border-radius:3px;white-space:nowrap;
+                         background:${b.bg};color:${b.color};border:1px solid ${b.border};">${type}</span>
+            <span style="flex:1;font-size:.82rem;font-family:monospace;word-break:break-all;">${escHtml(uri)}</span>
+            <button type="button" onclick="removeSsoUri(this)"
+                    style="background:none;border:none;color:#9ca3af;cursor:pointer;padding:.1rem .3rem;font-size:.8rem;line-height:1;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>`;
+    }
+
+    function buildSsoUriListHtml(sc) {
+        const items = [];
+        if (sc && sc.authUri)     items.push({ type:'AUTH_URI',    uri: sc.authUri });
+        if (sc && sc.authResult)  items.push({ type:'AUTH_RESULT', uri: sc.authResult });
+        if (sc && sc.redirectUris) {
+            sc.redirectUris.split('\n').map(u => u.trim()).filter(Boolean).forEach(u => {
+                items.push({ type:'REDIRECT_URI', uri: u });
+            });
+        }
+        if (!items.length) {
+            return '<div class="sso-uri-empty" style="color:#9ca3af;font-size:.8rem;text-align:center;padding:.6rem 0;">등록된 URI가 없습니다.</div>';
+        }
+        return items.map(it => ssoUriItemHtml(it.type, it.uri)).join('');
+    }
+
+    function addSsoUri(prefix) {
+        const typeEl  = document.getElementById(prefix === 'reg' ? 'regUriType'     : 'ssoUriType');
+        const valueEl = document.getElementById(prefix === 'reg' ? 'regUriValue'    : 'ssoUriValue');
+        const listEl  = document.getElementById(prefix === 'reg' ? 'regSsoUriList'  : 'ssoUriList');
+        const type = typeEl.value;
+        const uri  = valueEl.value.trim();
+        if (!uri) { showToast('URI를 입력하세요.', false); return; }
+        const empty = listEl.querySelector('.sso-uri-empty');
+        if (empty) empty.remove();
+        listEl.insertAdjacentHTML('beforeend', ssoUriItemHtml(type, uri));
+        valueEl.value = '';
+        valueEl.focus();
+    }
+
+    function removeSsoUri(btn) {
+        const item = btn.closest('.sso-uri-item');
+        const list = item.parentElement;
+        item.remove();
+        if (!list.querySelector('.sso-uri-item')) {
+            list.innerHTML = '<div class="sso-uri-empty" style="color:#9ca3af;font-size:.8rem;text-align:center;padding:.6rem 0;">등록된 URI가 없습니다.</div>';
+        }
+    }
+
+    function getSsoUrisByType(prefix, type) {
+        const listId = prefix === 'reg' ? 'regSsoUriList' : 'ssoUriList';
+        const list = document.getElementById(listId);
+        if (!list) return [];
+        return Array.from(list.querySelectorAll(`.sso-uri-item[data-type="${type}"]`))
+                    .map(el => el.getAttribute('data-uri'))
+                    .filter(Boolean);
+    }
+
+    // ── SSO 설정 탭 ──────────────────────────────────────────────
+    function loadSsoSettings(clientOid) {
+        fetch(`/auth/client/${clientOid}/sso`)
+            .then(r => {
+                if (r.status === 404) return null;
+                return r.json();
+            })
+            .then(sc => {
+                document.getElementById('ssoSettingsContent').innerHTML = renderSsoForm(clientOid, sc);
+            })
+            .catch(() => {
+                document.getElementById('ssoSettingsContent').innerHTML =
+                    '<div style="color:#ef4444;font-size:.83rem;">SSO 설정을 불러오지 못했습니다.</div>';
+            });
+    }
+
+    function renderSsoForm(clientOid, sc) {
+        if (!sc) {
+            return `<div style="color:#9ca3af;font-size:.86rem;padding:1rem 0;">
+                <i class="fas fa-info-circle" style="margin-right:.4rem;"></i>
+                SSO 설정이 아직 등록되지 않았습니다.
+            </div>`;
+        }
+        return `
+            <div class="row g-3" style="margin-top:.2rem;">
+                <div class="col-md-6">
+                    <label class="form-label modal-label">Client ID (읽기 전용)</label>
+                    <input type="text" class="modal-input w-100" value="${sc.clientId || ''}" readonly
+                           style="background:#f3f4f6;color:#6b7280;font-family:monospace;">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label modal-label">사용여부</label>
+                    <select id="ssoUseYn" class="modal-input w-100">
+                        <option value="Y" ${sc.useYn === 'Y' ? 'selected' : ''}>Y (사용)</option>
+                        <option value="N" ${sc.useYn === 'N' ? 'selected' : ''}>N (미사용)</option>
+                    </select>
+                </div>
+                <div class="col-md-3" style="display:none;">
+                    <input type="hidden" id="ssoGrantTypes" value="${sc.grantTypes || 'authorization_code'}">
+                </div>
+                <div class="col-12">
+                    <label class="form-label modal-label">SSO URI 등록</label>
+                    <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem;">
+                        <select id="ssoUriType" class="modal-input" style="width:auto;min-width:150px;">
+                            <option value="AUTH_URI">AUTH_URI</option>
+                            <option value="AUTH_RESULT">AUTH_RESULT</option>
+                            <option value="REDIRECT_URI">REDIRECT_URI</option>
+                        </select>
+                        <input type="text" id="ssoUriValue" class="modal-input" style="flex:1;"
+                               placeholder="https://app.example.com/..."
+                               onkeydown="if(event.key==='Enter'){event.preventDefault();addSsoUri('sso');}">
+                        <button type="button" class="btn btn-outline-primary btn-sm" style="white-space:nowrap;"
+                                onclick="addSsoUri('sso')">
+                            <i class="fas fa-plus"></i> 추가
+                        </button>
+                    </div>
+                    <div id="ssoUriList" style="border:1px solid #e5e7eb;border-radius:6px;min-height:56px;padding:.4rem;background:#f9fafb;">
+                        ${buildSsoUriListHtml(sc)}
+                    </div>
+                    <div style="font-size:.73rem;color:#9ca3af;margin-top:.3rem;">
+                        AUTH_URI: 인증 페이지 &nbsp;|&nbsp; AUTH_RESULT: 콜백 주소 &nbsp;|&nbsp; REDIRECT_URI: OIDC redirect_uri
+                    </div>
+                </div>
+                <div class="col-md-12">
+                    <label class="form-label modal-label">Scopes</label>
+                    <input type="text" id="ssoScopes" class="modal-input w-100" value="${sc.scopes || 'openid profile email'}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label modal-label">Access Token 유효시간(초)</label>
+                    <input type="number" id="ssoAccessSec" class="modal-input w-100" value="${sc.accessTokenValiditySec || 3600}" min="60">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label modal-label">Refresh Token 유효시간(초)</label>
+                    <input type="number" id="ssoRefreshSec" class="modal-input w-100" value="${sc.refreshTokenValiditySec || 86400}" min="60">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label modal-label">ID Token 유효시간(초)</label>
+                    <input type="number" id="ssoIdSec" class="modal-input w-100" value="${sc.idTokenValiditySec || 3600}" min="60">
+                </div>
+                <div class="col-12">
+                    <label class="form-label modal-label">NO_USE_SSO URI</label>
+                    <textarea id="ssoNoUseSso" class="modal-input w-100" rows="3"
+                              placeholder="/public&#10;/health">${sc.noUseSso || ''}</textarea>
+                    <div style="font-size:.75rem;color:#9ca3af;margin-top:.2rem;">SSO 인증을 사용하지 않는 URI 목록 (줄바꿈 구분)</div>
+                </div>
+                <div class="col-12" style="display:flex;justify-content:space-between;align-items:center;">
+                    <button type="button" class="btn btn-outline-warning btn-sm" onclick="regenerateSecret('${clientOid}')">
+                        <i class="fas fa-key"></i> Secret 재발급
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="saveSsoSettings('${clientOid}')">
+                        <i class="fas fa-save"></i> SSO 설정 저장
+                    </button>
+                </div>
+            </div>`;
+    }
+
+    function saveSsoSettings(clientOid) {
+        const authUris    = getSsoUrisByType('sso', 'AUTH_URI');
+        const authResults = getSsoUrisByType('sso', 'AUTH_RESULT');
+        const redirects   = getSsoUrisByType('sso', 'REDIRECT_URI');
+        const body = {
+            redirectUris:           redirects.join('\n'),
+            scopes:                 document.getElementById('ssoScopes').value,
+            grantTypes:             document.getElementById('ssoGrantTypes').value,
+            accessTokenValiditySec: parseInt(document.getElementById('ssoAccessSec').value) || 3600,
+            refreshTokenValiditySec:parseInt(document.getElementById('ssoRefreshSec').value) || 86400,
+            idTokenValiditySec:     parseInt(document.getElementById('ssoIdSec').value) || 3600,
+            useYn:                  document.getElementById('ssoUseYn').value,
+            authUri:                authUris[0] || '',
+            authResult:             authResults[0] || '',
+            noUseSso:               document.getElementById('ssoNoUseSso').value,
+        };
+
+        fetch(`/auth/client/${clientOid}/sso/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getCsrfHeaders() },
+            body: JSON.stringify(body)
+        })
+        .then(r => r.json())
+        .then(data => showToast(data.message, data.success))
+        .catch(() => showToast('SSO 설정 저장 중 오류가 발생했습니다.', false));
+    }
+
+    function regenerateSecret(clientOid) {
+        if (!confirm('Secret을 재발급하시겠습니까?\n이전 Secret은 즉시 무효화됩니다.')) return;
+
+        fetch(`/auth/client/${clientOid}/sso/regenerate-secret`, {
+            method: 'POST',
+            headers: { ...getCsrfHeaders() }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success && data.rawSecret) {
+                showSecretModal(data.rawSecret);
+            } else {
+                showToast(data.message || '재발급 실패', false);
+            }
+        })
+        .catch(() => showToast('Secret 재발급 중 오류가 발생했습니다.', false));
     }
 
     function openEditPanel() {
@@ -433,31 +792,91 @@
         });
     }
 
+    // ── 등록 모달 동작 ────────────────────────────────────────────
+    function onAppTypeChange() {
+        const appType = document.getElementById('regAppType').value;
+        document.getElementById('ssoSection').style.display = appType === 'SSO' ? 'block' : 'none';
+    }
+
+    function onClientCodeInput() {
+        const code = document.getElementById('regClientCode').value.trim().toLowerCase();
+        const ssoIdInput = document.getElementById('regSsoClientId');
+        if (ssoIdInput && !ssoIdInput.dataset.userEdited) {
+            ssoIdInput.value = code;
+        }
+    }
+
+    function syncRedirectUri() {
+        const authResult = document.getElementById('regAuthResult').value.trim();
+        const redirectUri = document.getElementById('regSsoRedirectUris');
+        if (redirectUri && !redirectUri.dataset.userEdited) {
+            redirectUri.value = authResult;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const ssoIdInput = document.getElementById('regSsoClientId');
+        if (ssoIdInput) ssoIdInput.addEventListener('input', () => { ssoIdInput.dataset.userEdited = '1'; });
+        const redirectInput = document.getElementById('regSsoRedirectUris');
+        if (redirectInput) redirectInput.addEventListener('input', () => { redirectInput.dataset.userEdited = '1'; });
+    });
+
     // ── 등록 ─────────────────────────────────────────────────────
     function submitRegister() {
-        const code = document.getElementById('regClientCode').value.trim();
-        const name = document.getElementById('regClientName').value.trim();
+        const code    = document.getElementById('regClientCode').value.trim();
+        const name    = document.getElementById('regClientName').value.trim();
+        const appType = document.getElementById('regAppType').value;
+
         if (!code) { showToast('클라이언트 코드를 입력하세요.', false); return; }
         if (!name) { showToast('클라이언트명을 입력하세요.', false); return; }
+
+        if (appType === 'SSO') {
+            const ssoClientId = document.getElementById('regSsoClientId').value.trim();
+            if (!ssoClientId) { showToast('SSO Client ID를 입력하세요.', false); return; }
+        }
 
         const fd = new FormData();
         fd.append('clientCode',  code.toUpperCase());
         fd.append('clientName',  name);
+        fd.append('appType',     appType);
         fd.append('parentOid',   document.getElementById('regParentOid').value);
         fd.append('sortOrder',   document.getElementById('regSortOrder').value);
         fd.append('useYn',       document.getElementById('regUseYn').value);
         fd.append('description', document.getElementById('regDescription').value);
+
+        if (appType === 'SSO') {
+            const regAuthUris    = getSsoUrisByType('reg', 'AUTH_URI');
+            const regAuthResults = getSsoUrisByType('reg', 'AUTH_RESULT');
+            const regRedirects   = getSsoUrisByType('reg', 'REDIRECT_URI');
+            fd.append('ssoClientId',    document.getElementById('regSsoClientId').value.trim());
+            fd.append('authUri',        regAuthUris[0] || '');
+            fd.append('authResult',     regAuthResults[0] || '');
+            fd.append('noUseSso',       document.getElementById('regNoUseSso').value);
+            fd.append('ssoRedirectUris', regRedirects.join('\n'));
+        }
         appendCsrf(fd);
 
         fetch('/auth/client', { method: 'POST', body: fd })
             .then(r => r.json())
             .then(data => {
-                showToast(data.message, data.success);
                 if (data.success) {
                     bootstrap.Modal.getInstance(document.getElementById('modalRegister')).hide();
                     document.getElementById('formRegister').reset();
+                    document.getElementById('ssoSection').style.display = 'none';
+                    document.getElementById('regSsoUriList').innerHTML =
+                        '<div class="sso-uri-empty" style="color:#9ca3af;font-size:.8rem;text-align:center;padding:.6rem 0;">등록된 URI가 없습니다.</div>';
                     loadTree();
                     if (data.clientOid) setTimeout(() => selectClient(data.clientOid), 300);
+                    if (data.rawSecret) {
+                        setTimeout(() => showSecretModal(data.rawSecret), 500);
+                    }
+                    if (data.ssoWarning) {
+                        showToast(data.ssoWarning, false);
+                    } else {
+                        showToast(data.message, true);
+                    }
+                } else {
+                    showToast(data.message, false);
                 }
             })
             .catch(() => showToast('등록 중 오류가 발생했습니다.', false));
@@ -470,6 +889,7 @@
 
         const fd = new FormData();
         fd.append('clientName',  name);
+        fd.append('appType',     document.getElementById('editAppType').value);
         fd.append('parentOid',   document.getElementById('editParentOid').value);
         fd.append('sortOrder',   document.getElementById('editSortOrder').value);
         fd.append('useYn',       document.getElementById('editUseYn').value);
@@ -508,6 +928,20 @@
             .catch(() => showToast('삭제 중 오류가 발생했습니다.', false));
     }
 
+    // ── Secret 표시 모달 ─────────────────────────────────────────
+    function showSecretModal(secret) {
+        document.getElementById('secretValue').value = secret;
+        new bootstrap.Modal(document.getElementById('modalSecret')).show();
+    }
+
+    function copySecret() {
+        const input = document.getElementById('secretValue');
+        input.select();
+        navigator.clipboard.writeText(input.value)
+            .then(() => showToast('Secret이 복사되었습니다.', true))
+            .catch(() => { document.execCommand('copy'); showToast('Secret이 복사되었습니다.', true); });
+    }
+
     // ── 토스트 ────────────────────────────────────────────────────
     function showToast(msg, success) {
         const wrap  = document.getElementById('toast-wrap');
@@ -519,7 +953,7 @@
         icon.className = success ? 'fas fa-circle-check' : 'fas fa-circle-xmark';
         msgEl.textContent = msg;
         wrap.style.display = 'block';
-        setTimeout(() => { wrap.style.display = 'none'; }, 3000);
+        setTimeout(() => { wrap.style.display = 'none'; }, 3500);
     }
 
     // ── CSRF ─────────────────────────────────────────────────────
@@ -527,6 +961,13 @@
         const meta = document.querySelector('meta[name="_csrf"]');
         const header = document.querySelector('meta[name="_csrf_header"]');
         if (meta && header) fd.append(meta.getAttribute('name'), meta.getAttribute('content'));
+    }
+
+    function getCsrfHeaders() {
+        const meta = document.querySelector('meta[name="_csrf"]');
+        const header = document.querySelector('meta[name="_csrf_header"]');
+        if (meta && header) return { [header.getAttribute('content')]: meta.getAttribute('content') };
+        return {};
     }
 </script>
 </body>

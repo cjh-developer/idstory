@@ -64,6 +64,7 @@ public class ClientService {
                 .clientName(dto.getClientName().trim())
                 .parentOid(blankToNull(dto.getParentOid()))
                 .description(blankToNull(dto.getDescription()))
+                .appType(dto.getAppType() != null ? dto.getAppType() : "IAM")
                 .sortOrder(dto.getSortOrder())
                 .useYn(dto.getUseYn() != null ? dto.getUseYn() : "Y")
                 .createdBy(performedBy)
@@ -91,6 +92,7 @@ public class ClientService {
         c.setClientName(dto.getClientName().trim());
         c.setParentOid(newParent);
         c.setDescription(blankToNull(dto.getDescription()));
+        c.setAppType(dto.getAppType() != null ? dto.getAppType() : "IAM");
         c.setSortOrder(dto.getSortOrder());
         c.setUseYn(dto.getUseYn() != null ? dto.getUseYn() : "Y");
         c.setUpdatedBy(performedBy);
@@ -144,6 +146,7 @@ public class ClientService {
         m.put("clientName",  c.getClientName());
         m.put("parentOid",   c.getParentOid());
         m.put("description", c.getDescription());
+        m.put("appType",     c.getAppType());
         m.put("sortOrder",   c.getSortOrder());
         m.put("useYn",       c.getUseYn());
         m.put("createdAt",   c.getCreatedAt()  != null ? c.getCreatedAt().toString()  : null);

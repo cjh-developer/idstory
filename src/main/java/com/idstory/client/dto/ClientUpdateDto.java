@@ -18,6 +18,8 @@ public class ClientUpdateDto {
 
     private String description;
 
+    private String appType = "IAM";
+
     private int sortOrder = 0;
 
     private String useYn = "Y";

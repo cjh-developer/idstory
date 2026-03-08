@@ -457,6 +457,7 @@ CREATE TABLE ids_iam_client (
     client_name  VARCHAR(100) NOT NULL  COMMENT '클라이언트명',
     parent_oid   CHAR(18)     NULL      COMMENT '상위 클라이언트 OID (NULL=최상위)',
     description  VARCHAR(500) NULL,
+    app_type     VARCHAR(10)  NOT NULL  DEFAULT 'IAM'  COMMENT 'APP 유형: SSO|IAM|EAM|IEAM',
     sort_order   INT          NOT NULL  DEFAULT 0,
     use_yn       CHAR(1)      NOT NULL  DEFAULT 'Y',
     created_at   DATETIME     NOT NULL  DEFAULT CURRENT_TIMESTAMP,
@@ -664,3 +665,135 @@ CREATE TABLE ids_iam_access_control_hist (
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_unicode_ci
   COMMENT = '접근 제어 차단 이력';
+
+-- ============================================================
+--  SSO (OIDC) 관련 테이블
+-- ============================================================
+
+-- ── ids_iam_sso_key_pair (RSA 서명 키 쌍) ──────────────────
+CREATE TABLE ids_iam_sso_key_pair (
+    key_id          VARCHAR(36)     NOT NULL                            COMMENT 'Key UUID (PK)',
+    private_key_pem TEXT            NOT NULL                            COMMENT 'RSA 개인키 PEM',
+    public_key_pem  TEXT            NOT NULL                            COMMENT 'RSA 공개키 PEM',
+    active_yn       CHAR(1)         NOT NULL    DEFAULT 'Y'             COMMENT '활성 여부 Y|N',
+    created_at      DATETIME        NOT NULL    DEFAULT CURRENT_TIMESTAMP COMMENT '생성일시',
+
+    CONSTRAINT pk_iam_sso_kp    PRIMARY KEY (key_id),
+    INDEX idx_iam_sso_kp_active (active_yn)
+
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  COMMENT = 'SSO RSA 서명 키 쌍';
+
+-- ── ids_iam_sso_client (SSO 클라이언트 설정) ────────────────
+CREATE TABLE ids_iam_sso_client (
+    sso_client_oid              CHAR(18)        NOT NULL                            COMMENT 'SSO 클라이언트 OID (PK)',
+    client_oid                  CHAR(18)        NOT NULL                            COMMENT '클라이언트 OID (FK→ids_iam_client)',
+    client_id                   VARCHAR(100)    NOT NULL                            COMMENT 'OIDC client_id (unique)',
+    enc_client_secret           VARCHAR(64)     NOT NULL                            COMMENT 'SHA-256 HEX 해시된 시크릿',
+    redirect_uris               TEXT            NOT NULL                            COMMENT '허용 redirect URI (줄바꿈 구분)',
+    scopes                      VARCHAR(500)    NOT NULL    DEFAULT 'openid profile email' COMMENT '허용 스코프 (공백 구분)',
+    grant_types                 VARCHAR(200)    NOT NULL    DEFAULT 'authorization_code'   COMMENT '허용 grant type',
+    access_token_validity_sec   INT             NOT NULL    DEFAULT 3600            COMMENT 'Access Token 유효시간(초)',
+    refresh_token_validity_sec  INT             NOT NULL    DEFAULT 86400           COMMENT 'Refresh Token 유효시간(초)',
+    id_token_validity_sec       INT             NOT NULL    DEFAULT 3600            COMMENT 'ID Token 유효시간(초)',
+    use_yn                      CHAR(1)         NOT NULL    DEFAULT 'Y'             COMMENT '사용여부 Y|N',
+    auth_uri                    VARCHAR(500)    NULL                                COMMENT 'SSO 세션 없을 때 이동하는 인증 페이지',
+    auth_result                 VARCHAR(500)    NULL                                COMMENT '인증 완료 후 AUTH_CODE 콜백 주소',
+    no_use_sso                  TEXT            NULL                                COMMENT 'SSO 미사용 URI 목록 (줄바꿈 구분)',
+    created_at                  DATETIME        DEFAULT CURRENT_TIMESTAMP           COMMENT '생성일시',
+    created_by                  VARCHAR(50)                                         COMMENT '생성자',
+    updated_at                  DATETIME        DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정일시',
+    updated_by                  VARCHAR(50)                                         COMMENT '수정자',
+
+    CONSTRAINT pk_iam_sso_client        PRIMARY KEY (sso_client_oid),
+    CONSTRAINT uq_iam_sso_client_oid    UNIQUE KEY  (client_oid),
+    CONSTRAINT uq_iam_sso_client_id     UNIQUE KEY  (client_id),
+    CONSTRAINT fk_iam_sso_client_oid    FOREIGN KEY (client_oid) REFERENCES ids_iam_client(client_oid) ON DELETE CASCADE,
+    INDEX idx_iam_sso_c_use_yn          (use_yn)
+
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  COMMENT = 'SSO OIDC 클라이언트 설정';
+
+-- ── ids_iam_sso_auth_code (인증코드 발행 이력) ──────────────
+CREATE TABLE ids_iam_sso_auth_code (
+    code_oid        CHAR(18)        NOT NULL                            COMMENT '이력 OID (PK)',
+    auth_code       VARCHAR(128)    NOT NULL                            COMMENT '발행된 인증코드',
+    client_oid      CHAR(18)        NOT NULL                            COMMENT '클라이언트 OID',
+    client_id       VARCHAR(100)    NOT NULL                            COMMENT 'OIDC client_id',
+    user_oid        CHAR(18)        NOT NULL                            COMMENT '사용자 OID',
+    user_id         VARCHAR(50)     NOT NULL                            COMMENT '사용자 계정',
+    redirect_uri    VARCHAR(1000)   NOT NULL                            COMMENT '요청 redirect URI',
+    scopes          VARCHAR(200)                                        COMMENT '요청 스코프',
+    state           VARCHAR(500)                                        COMMENT 'OAuth2 state',
+    issued_at       DATETIME        NOT NULL    DEFAULT CURRENT_TIMESTAMP COMMENT '발행일시',
+    expires_at      DATETIME        NOT NULL                            COMMENT '만료일시',
+    used_at         DATETIME        NULL                                COMMENT '사용일시',
+    status          VARCHAR(10)     NOT NULL    DEFAULT 'ISSUED'        COMMENT '상태 ISSUED|USED|EXPIRED',
+    ip_address      VARCHAR(100)                                        COMMENT '클라이언트 IP',
+
+    CONSTRAINT pk_iam_sso_ac        PRIMARY KEY (code_oid),
+    CONSTRAINT uq_iam_sso_ac_code   UNIQUE KEY  (auth_code),
+    INDEX idx_iam_sso_ac_client     (client_oid),
+    INDEX idx_iam_sso_ac_user       (user_oid),
+    INDEX idx_iam_sso_ac_status     (status),
+    INDEX idx_iam_sso_ac_issued     (issued_at)
+
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  COMMENT = 'SSO 인증코드(Authorization Code) 발행 이력';
+
+-- ── ids_iam_sso_token (발행 토큰 이력) ──────────────────────
+CREATE TABLE ids_iam_sso_token (
+    token_oid       CHAR(18)        NOT NULL                            COMMENT '토큰 OID (PK)',
+    client_oid      CHAR(18)        NOT NULL                            COMMENT '클라이언트 OID',
+    client_id       VARCHAR(100)    NOT NULL                            COMMENT 'OIDC client_id',
+    user_oid        CHAR(18)        NOT NULL                            COMMENT '사용자 OID',
+    user_id         VARCHAR(50)     NOT NULL                            COMMENT '사용자 계정',
+    token_type      VARCHAR(10)     NOT NULL                            COMMENT '토큰 유형 ACCESS|REFRESH|ID',
+    jti             VARCHAR(100)    NOT NULL                            COMMENT 'JWT ID (UUID)',
+    scopes          VARCHAR(200)                                        COMMENT '발행 스코프',
+    issued_at       DATETIME        NOT NULL    DEFAULT CURRENT_TIMESTAMP COMMENT '발행일시',
+    expires_at      DATETIME        NOT NULL                            COMMENT '만료일시',
+    revoked_at      DATETIME        NULL                                COMMENT '취소일시',
+    ip_address      VARCHAR(100)                                        COMMENT '클라이언트 IP',
+
+    CONSTRAINT pk_iam_sso_token     PRIMARY KEY (token_oid),
+    CONSTRAINT uq_iam_sso_token_jti UNIQUE KEY  (jti),
+    INDEX idx_iam_sso_tk_client     (client_oid),
+    INDEX idx_iam_sso_tk_user       (user_oid),
+    INDEX idx_iam_sso_tk_type       (token_type),
+    INDEX idx_iam_sso_tk_issued     (issued_at)
+
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  COMMENT = 'SSO 발행 토큰 이력';
+
+-- ── ids_iam_sso_access_log (SSO 접근 이력) ──────────────────
+CREATE TABLE ids_iam_sso_access_log (
+    log_oid         CHAR(18)        NOT NULL                            COMMENT '이력 OID (PK)',
+    client_oid      CHAR(18)                                            COMMENT '클라이언트 OID',
+    client_id       VARCHAR(100)                                        COMMENT 'OIDC client_id',
+    user_oid        CHAR(18)                                            COMMENT '사용자 OID',
+    user_id         VARCHAR(50)                                         COMMENT '사용자 계정',
+    ip_address      VARCHAR(100)                                        COMMENT '접속 IP',
+    action          VARCHAR(20)     NOT NULL                            COMMENT '행위 AUTHORIZE|TOKEN|USERINFO|LOGOUT|DISCOVERY|JWKS',
+    status          VARCHAR(10)     NOT NULL                            COMMENT '결과 SUCCESS|FAIL|DENIED',
+    detail          VARCHAR(500)                                        COMMENT '상세 내용',
+    accessed_at     DATETIME        NOT NULL    DEFAULT CURRENT_TIMESTAMP COMMENT '접근일시',
+
+    CONSTRAINT pk_iam_sso_al        PRIMARY KEY (log_oid),
+    INDEX idx_iam_sso_al_client     (client_id),
+    INDEX idx_iam_sso_al_user       (user_id),
+    INDEX idx_iam_sso_al_action     (action),
+    INDEX idx_iam_sso_al_accessed   (accessed_at)
+
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  COMMENT = 'SSO 접근 이력';

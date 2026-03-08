@@ -43,6 +43,11 @@ dependencies {
     // ── MySQL Connector (런타임) ─────────────────────────────────────────────
     runtimeOnly 'com.mysql:mysql-connector-j'
 
+    // ── JJWT (JWT 생성/파싱, SSO OIDC 토큰) ─────────────────────────────────
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+
     // ── Lombok (컴파일 전용 + 어노테이션 프로세서) ────────────────────────────
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'

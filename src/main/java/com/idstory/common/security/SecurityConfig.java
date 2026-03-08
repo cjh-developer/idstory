@@ -60,6 +60,18 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+            // ── CSRF: OIDC 서버-서버 엔드포인트 예외 처리 ────────────────────────
+            .csrf(csrf -> csrf
+                .ignoringRequestMatchers(
+                    "/oauth2/token",
+                    "/oauth2/userinfo",
+                    "/sso/token",
+                    "/sso/userinfo",
+                    "/sso/logout",
+                    "/sso/check"
+                )
+            )
+
             // ── URL 접근 권한 ─────────────────────────────────────────────────
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
@@ -71,7 +83,17 @@ public class SecurityConfig {
                     "/js/**",
                     "/images/**",
                     "/font/**",
-                    "/favicon.ico"
+                    "/favicon.ico",
+                    // SSO/OIDC 공개 엔드포인트
+                    "/.well-known/openid-configuration",
+                    "/oauth2/jwks",
+                    "/oauth2/token",
+                    "/oauth2/userinfo",
+                    // SSO API 공개 엔드포인트 (/sso/auth는 인증 필요 → 제외)
+                    "/sso/token",
+                    "/sso/userinfo",
+                    "/sso/logout",
+                    "/sso/check"
                 ).permitAll()
                 .anyRequest().authenticated()
             )

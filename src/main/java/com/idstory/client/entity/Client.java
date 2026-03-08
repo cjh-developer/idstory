@@ -35,6 +35,10 @@ public class Client {
     @Column(name = "description", length = 500)
     private String description;
 
+    @Column(name = "app_type", length = 10, nullable = false)
+    @Builder.Default
+    private String appType = "IAM";
+
     @Column(name = "sort_order", nullable = false)
     @Builder.Default
     private int sortOrder = 0;
